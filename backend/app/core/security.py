@@ -11,9 +11,8 @@ from app.models.user import User, Role
 
 # Password hashing (esplicita gestione limite 72 byte)
 pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__truncate_error=False  # tronca in modo sicuro invece di sollevare errore
+    schemes=["bcrypt_sha256"],  # evita limite 72 byte applicando SHA-256 prima di bcrypt
+    deprecated="auto"
 )
 
 # JWT token scheme
@@ -26,9 +25,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password enforcing bcrypt 72-byte (UTF-8) limit."""
-    if len(password.encode("utf-8")) > 72:
-        password = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+    """Hash a password using bcrypt_sha256 (nessun limite 72 byte)."""
     return pwd_context.hash(password)
 
 

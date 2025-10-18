@@ -12,9 +12,8 @@ from app.schemas.auth import UserRegister, UserLogin, Token, UserProfile
 
 # Password hashing
 pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__truncate_error=False
+    schemes=["bcrypt_sha256"],
+    deprecated="auto"
 )
 
 class AuthService:
@@ -58,10 +57,8 @@ class AuthService:
         try:
             hashed_password = self.get_password_hash(user_data.password)
         except PasswordSizeError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password troppo lunga (max 72 byte)"
-            )
+            # Non dovrebbe più accadere con bcrypt_sha256, ma per sicurezza
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password non valida")
         except Exception:
             # Lasciamo propagare per ottenere un 500 con messaggio reale nei log
             raise
