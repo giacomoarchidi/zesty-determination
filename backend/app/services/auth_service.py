@@ -53,8 +53,16 @@ class AuthService:
                 detail="Email già registrata"
             )
         
-        # Crea l'utente
-        hashed_password = self.get_password_hash(user_data.password)
+        # Crea l'utente (gestione robusta limite bcrypt 72 byte)
+        try:
+            hashed_password = self.get_password_hash(user_data.password)
+        except Exception as e:
+            msg = str(e)
+            if "72 bytes" in msg:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Password troppo lunga (max 72 byte)")
+            raise
         user = User(
             email=user_data.email,
             hashed_password=hashed_password,
