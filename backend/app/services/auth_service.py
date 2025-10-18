@@ -57,12 +57,13 @@ class AuthService:
         # Crea l'utente (gestione robusta limite bcrypt 72 byte)
         try:
             hashed_password = self.get_password_hash(user_data.password)
-        except (PasswordSizeError, ValueError) as e:
+        except PasswordSizeError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password troppo lunga (max 72 byte)"
             )
         except Exception:
+            # Lasciamo propagare per ottenere un 500 con messaggio reale nei log
             raise
         user = User(
             email=user_data.email,
