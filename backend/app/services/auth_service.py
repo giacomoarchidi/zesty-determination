@@ -77,26 +77,30 @@ class AuthService:
         self.db.add(user)
         self.db.flush()  # Per ottenere l'ID dell'utente
         
-        # Crea il profilo specifico in base al ruolo
+        # Crea il profilo specifico in base al ruolo (coerente con i modelli attuali)
         if user_data.role == Role.student:
             profile = StudentProfile(
                 user_id=user.id,
-                grade_level=user_data.grade_level,
-                subjects=user_data.subjects or []
+                first_name=user_data.first_name,
+                last_name=user_data.last_name,
+                school_level=user_data.school_level
             )
         elif user_data.role == Role.tutor:
             profile = TutorProfile(
                 user_id=user.id,
-                subjects=user_data.subjects or [],
-                hourly_rate=user_data.hourly_rate or 0.0,
+                first_name=user_data.first_name,
+                last_name=user_data.last_name,
                 bio=user_data.bio or "",
-                experience_years=user_data.experience_years or 0
+                subjects=(user_data.subjects.split(",") if user_data.subjects else []),
+                hourly_rate=user_data.hourly_rate or 15.0,
+                phone=user_data.phone
             )
         elif user_data.role == Role.parent:
             profile = ParentProfile(
                 user_id=user.id,
-                child_name=user_data.child_name or "",
-                child_grade_level=user_data.child_grade_level or ""
+                first_name=user_data.first_name,
+                last_name=user_data.last_name,
+                phone=user_data.phone
             )
         else:
             raise HTTPException(
