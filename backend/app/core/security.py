@@ -9,8 +9,12 @@ from app.core.config import settings
 from app.core.db import get_db
 from app.models.user import User, Role
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing (esplicita gestione limite 72 byte)
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__truncate_error=False  # tronca in modo sicuro invece di sollevare errore
+)
 
 # JWT token scheme
 security = HTTPBearer()

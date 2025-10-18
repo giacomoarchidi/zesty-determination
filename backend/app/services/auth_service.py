@@ -10,7 +10,11 @@ from app.models.user import User, Role, StudentProfile, TutorProfile, ParentProf
 from app.schemas.auth import UserRegister, UserLogin, Token, UserProfile
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__truncate_error=False
+)
 
 class AuthService:
     def __init__(self, db: Session):

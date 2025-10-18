@@ -10,7 +10,11 @@ from app.models.user import User, Role, StudentProfile, TutorProfile, ParentProf
 from app.schemas.auth import UserRegister, UserLogin, TokenData
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__truncate_error=False
+)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se la password è corretta"""
