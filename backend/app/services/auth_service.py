@@ -133,7 +133,11 @@ class AuthService:
             expires_delta=access_token_expires
         )
         
-        return Token(access_token=access_token, token_type="bearer")
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=int(access_token_expires.total_seconds()),
+        )
 
     def get_user_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
         """Ottiene il profilo completo di un utente"""
