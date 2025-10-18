@@ -21,10 +21,10 @@ class AuthService:
         return pwd_context.verify(plain_password, hashed_password)
 
     def get_password_hash(self, password: str) -> str:
-        """Genera hash della password"""
-        # Tronca la password a 72 caratteri per bcrypt
-        if len(password) > 72:
-            password = password[:72]
+        """Genera hash della password rispettando il limite bcrypt di 72 byte (UTF-8)."""
+        # Se supera 72 byte in UTF-8, tronca in modo sicuro ai primi 72 byte
+        if len(password.encode("utf-8")) > 72:
+            password = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
         return pwd_context.hash(password)
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
