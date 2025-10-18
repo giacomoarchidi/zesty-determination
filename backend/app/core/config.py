@@ -66,6 +66,18 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
         return self.CORS_ORIGINS
 
+    # Hosts consentiti (TrustedHostMiddleware): stringa separata da virgole
+    # Esempio: "zesty-determination-production.up.railway.app,localhost,127.0.0.1"
+    ALLOWED_HOSTS: str | None = None
+
+    def get_allowed_hosts(self) -> List[str]:
+        """Parse allowed hosts list for TrustedHostMiddleware"""
+        if not self.ALLOWED_HOSTS:
+            return []
+        if isinstance(self.ALLOWED_HOSTS, str):
+            return [host.strip() for host in self.ALLOWED_HOSTS.split(",") if host.strip()]
+        return self.ALLOWED_HOSTS
+
     class Config:
         env_file = ".env.dev"
         case_sensitive = True

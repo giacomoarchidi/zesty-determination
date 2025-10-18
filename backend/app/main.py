@@ -84,12 +84,14 @@ app.add_middleware(
     max_age=3600,
 )
 
-# Trusted host middleware for production
+# Trusted host middleware for production (configurabile via env ALLOWED_HOSTS)
 if settings.ENV == "prod":
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["yourdomain.com", "*.yourdomain.com"]
-    )
+    allowed_hosts = settings.get_allowed_hosts()
+    if allowed_hosts:
+        app.add_middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=allowed_hosts
+        )
 
 # Global exception handler
 # Global exception handler con logging dettagliato
