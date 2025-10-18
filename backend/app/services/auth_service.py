@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
+from passlib.exc import PasswordSizeError
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
 
@@ -56,12 +57,12 @@ class AuthService:
         # Crea l'utente (gestione robusta limite bcrypt 72 byte)
         try:
             hashed_password = self.get_password_hash(user_data.password)
-        except Exception as e:
-            msg = str(e)
-            if "72 bytes" in msg:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Password troppo lunga (max 72 byte)")
+        except (PasswordSizeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password troppo lunga (max 72 byte)"
+            )
+        except Exception:
             raise
         user = User(
             email=user_data.email,
