@@ -12,8 +12,8 @@ from app.schemas.auth import UserRegister, UserLogin, Token, UserProfile
 
 # Password hashing
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256"],
-    deprecated="auto"
+    schemes=["bcrypt_sha256", "bcrypt"],
+    deprecated=["bcrypt"],
 )
 
 class AuthService:

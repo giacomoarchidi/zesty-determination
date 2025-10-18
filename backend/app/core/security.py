@@ -11,8 +11,8 @@ from app.models.user import User, Role
 
 # Password hashing (esplicita gestione limite 72 byte)
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256"],  # evita limite 72 byte applicando SHA-256 prima di bcrypt
-    deprecated="auto"
+    schemes=["bcrypt_sha256", "bcrypt"],  # default: bcrypt_sha256; compat: bcrypt esistenti
+    deprecated=["bcrypt"],
 )
 
 # JWT token scheme
