@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Optional, Union
 import hashlib
-import base64
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -11,31 +10,24 @@ from app.core.config import settings
 from app.core.db import get_db
 from app.models.user import User, Role
 
-# Password hashing - Usa bcrypt con pre-hash manuale SHA-256
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
-
 # JWT token scheme
 security = HTTPBearer()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifica password con pre-hash SHA-256"""
+    """Verifica password usando SHA-256 + bcrypt"""
     try:
-        digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
-        b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-        return pwd_context.verify(b64, hashed_password)
+        password_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+        return bcrypt.checkpw(password_hash.encode('utf-8'), hashed_password.encode('utf-8'))
     except Exception:
         return False
 
 
 def get_password_hash(password: str) -> str:
-    """Genera hash con pre-hash SHA-256 (sempre < 72 bytes)"""
-    digest = hashlib.sha256(password.encode("utf-8")).digest()
-    b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-    return pwd_context.hash(b64)
+    """Genera hash usando SHA-256 + bcrypt (nessun limite sui 72 bytes)"""
+    password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password_hash.encode('utf-8'), salt).decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import hashlib
-import base64
+import bcrypt
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-from passlib.exc import PasswordSizeError
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
 
@@ -12,34 +10,26 @@ from app.core.config import settings
 from app.models.user import User, Role, StudentProfile, TutorProfile, ParentProfile
 from app.schemas.auth import UserRegister, UserLogin, Token, UserProfile
 
-# Password hashing - Usa bcrypt normale, il pre-hash lo facciamo manualmente
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
-
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Verifica password usando lo stesso pre-hash SHA-256 usato per la creazione."""
+        """Verifica password usando SHA-256 + bcrypt."""
         try:
-            # Pre-hash della password esattamente come in get_password_hash
-            digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
-            b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-            return pwd_context.verify(b64, hashed_password)
+            # Pre-hash con SHA-256 per evitare limite 72 bytes di bcrypt
+            password_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+            return bcrypt.checkpw(password_hash.encode('utf-8'), hashed_password.encode('utf-8'))
         except Exception:
             return False
 
     def get_password_hash(self, password: str) -> str:
-        """Genera hash robusto: sempre pre-hash SHA-256 base64url prima di passare a passlib.
-        In questo modo la stringa è corta (<72B) e compatibile con qualsiasi backend bcrypt.
-        """
-        # Pre-hash con SHA-256 per ridurre la lunghezza a 43 caratteri (ben sotto 72 bytes)
-        digest = hashlib.sha256(password.encode("utf-8")).digest()
-        b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-        return pwd_context.hash(b64)
+        """Genera hash usando SHA-256 + bcrypt (nessun limite sui 72 bytes)."""
+        # Pre-hash con SHA-256: qualsiasi password diventa una stringa di 64 caratteri hex
+        password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        # Hash con bcrypt (il risultato è sempre valido perché 64 caratteri < 72 bytes)
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password_hash.encode('utf-8'), salt).decode('utf-8')
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Crea un JWT token"""
