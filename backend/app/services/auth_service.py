@@ -80,8 +80,7 @@ class AuthService:
                 last_name=user_data.last_name,
                 bio=user_data.bio or "",
                 subjects=(user_data.subjects.split(",") if user_data.subjects else []),
-                hourly_rate=user_data.hourly_rate or 15.0,
-                phone=user_data.phone
+                hourly_rate=user_data.hourly_rate or 15.0
             )
         elif user_data.role == Role.parent:
             profile = ParentProfile(
