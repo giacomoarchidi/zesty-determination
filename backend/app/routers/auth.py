@@ -13,14 +13,8 @@ router = APIRouter()
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """Register a new user"""
     auth_service = AuthService(db)
-    try:
-      user = auth_service.register_user(user_data)
-    except Exception as e:
-      # Normalizza eventuale errore bcrypt puro in 400 leggibile
-      msg = str(e)
-      if "72" in msg and "byte" in msg:
-          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password non valida: usa max 72 byte oppure una password normale senza emoji")
-      raise
+    # La validazione della password è già gestita da Pydantic in UserRegister
+    user = auth_service.register_user(user_data)
     return UserResponse.model_validate(user)
 
 
