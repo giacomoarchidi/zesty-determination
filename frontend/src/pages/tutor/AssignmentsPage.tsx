@@ -40,28 +40,7 @@ const AssignmentsPage: React.FC = () => {
       .trim();
   };
 
-  const [assignments, setAssignments] = useState<Assignment[]>([
-    {
-      id: '1',
-      title: 'Equazioni di Secondo Grado',
-      subject: 'Matematica',
-      description: 'Risolvi le seguenti equazioni quadratiche utilizzando il metodo più appropriato',
-      dueDate: '2024-10-15',
-      difficulty: 'medium',
-      points: 20,
-      status: 'published'
-    },
-    {
-      id: '2',
-      title: 'Fisica: Leggi di Newton',
-      subject: 'Fisica',
-      description: 'Applica le tre leggi di Newton a problemi pratici di meccanica',
-      dueDate: '2024-10-18',
-      difficulty: 'hard',
-      points: 25,
-      status: 'published'
-    }
-  ]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
 
   const [students, setStudents] = useState<Student[]>([]);
 
