@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+// Forza il backend locale in ambiente dev (quando si usa Vite su localhost)
+const isLocalDev = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+const API_BASE_URL = isLocalDev
+  ? 'http://localhost:8000'
+  : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
 
 export const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
