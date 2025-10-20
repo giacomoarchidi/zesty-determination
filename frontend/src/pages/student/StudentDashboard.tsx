@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { studentApi } from '../../api/student';
+import { useAuthStore } from '../../store/authStore';
 
 interface Lesson {
   id: number;
@@ -25,6 +26,16 @@ const StudentDashboard: React.FC = () => {
   const [upcomingLessons, setUpcomingLessons] = useState<Lesson[]>([]);
   const [recentAssignments, setRecentAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const assignmentsRef = useRef<HTMLDivElement | null>(null);
+  const user = useAuthStore((s) => s.user);
+  const greetingName = (() => {
+    if (!user) return 'Utente';
+    const email = user.email?.toLowerCase() || '';
+    if (email === 'giac.archi3@gmail.com') return 'Giacomo';
+    if (user.role === 'student' && email.includes('studente.d')) return 'Tiziano';
+    return user.first_name || 'Utente';
+  })();
 
   const loadData = async () => {
       try {
@@ -51,9 +62,21 @@ const StudentDashboard: React.FC = () => {
           setUpcomingLessons([]);
         }
         
-        // TODO: Implementare chiamata API per compiti
-        // const assignmentsResponse = await studentApi.getAssignments();
-        setRecentAssignments([]);
+        try {
+          const assignmentsResponse = await studentApi.getAssignments();
+          const normalized = (assignmentsResponse || []).slice(0, 4).map(a => ({
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            due_date: a.due_date,
+            status: a.is_published ? 'published' : 'draft',
+            tutor_name: a.tutor_name || 'Tutor'
+          }));
+          setRecentAssignments(normalized);
+        } catch (error) {
+          console.error('❌ Errore caricamento compiti:', error);
+          setRecentAssignments([]);
+        }
         
     } catch (error) {
         console.error('Errore caricamento dati:', error);
@@ -74,6 +97,40 @@ const StudentDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Render LaTeX nei compiti (KaTeX inserito in index.html)
+  useEffect(() => {
+    try {
+      const w = window as any;
+      if (w.renderMathInElement && assignmentsRef.current) {
+        w.renderMathInElement(assignmentsRef.current, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$', right: '$', display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+    } catch (_) {}
+  }, [recentAssignments, expanded]);
+
+  const sanitizeAi = (txt?: string) => {
+    if (!txt) return '';
+    return txt
+      .replace(/\*\*/g, '')
+      .replace(/^\s*#{1,6}\s*/gm, '')
+      .trim();
+  };
+
+  const formatDescHtml = (text: string) => {
+    const safe = sanitizeAi(text);
+    const parts = safe.split('\n').map(p => p.trim());
+    const html = parts
+      .map(p => (p.length === 0 ? '<br />' : `<p class="leading-relaxed">${p}</p>`))
+      .join('');
+    return html;
+  };
+
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('it-IT', {
@@ -86,12 +143,8 @@ const StudentDashboard: React.FC = () => {
   };
 
   const canJoinLesson = (lesson: Lesson) => {
-    const now = new Date();
-    const startTime = new Date(lesson.start_at);
-    const timeDiff = startTime.getTime() - now.getTime();
-    const minutesDiff = timeDiff / (1000 * 60);
-    
-    return lesson.status === 'confirmed' && minutesDiff <= 15 && minutesDiff >= -30;
+    // Mostra sempre il pulsante per lezioni confermate
+    return lesson.status === 'confirmed';
   };
 
   if (loading) {
@@ -117,8 +170,8 @@ const StudentDashboard: React.FC = () => {
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-400 bg-clip-text text-transparent">
                 Dashboard Studente
-          </h1>
-              <p className="text-white/70 mt-2 text-lg">Benvenuto nella tua area personale di apprendimento</p>
+              </h1>
+              <p className="text-white/70 mt-2 text-lg">Bentornato, <span className="text-white font-semibold">{greetingName}</span> 👋</p>
             </div>
             <div className="flex space-x-4">
               <Link 
@@ -319,7 +372,7 @@ const StudentDashboard: React.FC = () => {
                 Compiti Recenti
               </h2>
             </div>
-            <div className="p-8">
+            <div className="p-8" ref={assignmentsRef}>
               {recentAssignments.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -332,24 +385,31 @@ const StudentDashboard: React.FC = () => {
               ) : (
                 <div className="space-y-6">
                   {recentAssignments.map((assignment) => (
-                    <div key={assignment.id} className="group bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-white/30 transition-all duration-300 hover:bg-white/10">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-blue-300 transition-colors duration-300">{assignment.title}</h3>
-                          <p className="text-white/70 mb-2">{assignment.description}</p>
-                          <p className="text-white/60 text-sm mb-2">
-                            Scadenza: <span className="font-medium">{formatDateTime(assignment.due_date)}</span>
-                          </p>
-                          <p className="text-white/60 text-sm">da <span className="font-medium">{assignment.tutor_name}</span></p>
-                      </div>
-                        <span className={`px-3 py-1 text-xs rounded-full font-medium ${
-                          assignment.status === 'completed' ? 'bg-cyan-500/20 text-green-300 border border-cyan-500/30' :
+                    <div key={assignment.id} className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-white/30 transition-all duration-300 hover:bg-white/10">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h3 className="text-xl font-semibold text-white group-hover:text-blue-300 transition-colors duration-300 mr-2 truncate">{assignment.title}</h3>
+                            <span className="px-2 py-0.5 text-[11px] rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">{assignment.tutor_name}</span>
+                            <span className="px-2 py-0.5 text-[11px] rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">Scadenza: {formatDateTime(assignment.due_date)}</span>
+                          </div>
+                          <div className={`${expanded[assignment.id] ? '' : 'line-clamp-3'} text-white/80 text-sm`} dangerouslySetInnerHTML={{ __html: formatDescHtml(assignment.description) }} />
+                          <div className="mt-2 flex items-center gap-3">
+                            <button
+                              onClick={() => setExpanded(prev => ({ ...prev, [assignment.id]: !prev[assignment.id] }))}
+                              className="text-blue-300 hover:text-blue-200 text-sm"
+                            >
+                              {expanded[assignment.id] ? 'Mostra meno' : 'Mostra di più'}
+                            </button>
+                            <Link to={`/student/assignments?id=${assignment.id}`} className="text-white/70 hover:text-white text-sm">Apri compito</Link>
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 text-xs rounded-full font-medium shrink-0 ${
+                          assignment.status === 'completed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
                           assignment.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
                           'bg-gray-500/20 text-gray-300 border border-gray-500/30'
                         }`}>
-                          {assignment.status === 'completed' ? 'Completato' :
-                           assignment.status === 'pending' ? 'In corso' :
-                           assignment.status}
+                          {assignment.status === 'completed' ? 'Completato' : assignment.status === 'pending' ? 'In corso' : assignment.status}
                         </span>
                       </div>
                     </div>

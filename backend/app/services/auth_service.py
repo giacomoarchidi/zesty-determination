@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+import hashlib
+import base64
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from passlib.exc import PasswordSizeError
@@ -12,8 +14,8 @@ from app.schemas.auth import UserRegister, UserLogin, Token, UserProfile
 
 # Password hashing
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256", "bcrypt"],
-    deprecated=["bcrypt"],
+    schemes=["bcrypt_sha256"],
+    deprecated="auto",
 )
 
 class AuthService:
@@ -21,15 +23,29 @@ class AuthService:
         self.db = db
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Verifica se la password è corretta"""
-        return pwd_context.verify(plain_password, hashed_password)
+        """Verifica password con fallback: plain -> bcrypt_sha256; se fallisce, usa prehash SHA-256 base64url."""
+        try:
+            if pwd_context.verify(plain_password, hashed_password):
+                return True
+        except PasswordSizeError:
+            # In caso di vecchi container che usano bcrypt puro
+            pass
+
+        # Fallback: pre-hash lato server e verifica
+        digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
+        b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        try:
+            return pwd_context.verify(b64, hashed_password)
+        except Exception:
+            return False
 
     def get_password_hash(self, password: str) -> str:
-        """Genera hash della password rispettando il limite bcrypt di 72 byte (UTF-8)."""
-        # Se supera 72 byte in UTF-8, tronca in modo sicuro ai primi 72 byte
-        if len(password.encode("utf-8")) > 72:
-            password = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
-        return pwd_context.hash(password)
+        """Genera hash robusto: sempre pre-hash SHA-256 base64url prima di passare a passlib.
+        In questo modo la stringa è corta (<72B) e compatibile con qualsiasi backend bcrypt.
+        """
+        digest = hashlib.sha256(password.encode("utf-8")).digest()
+        b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        return pwd_context.hash(b64)
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Crea un JWT token"""
@@ -66,8 +82,6 @@ class AuthService:
             email=user_data.email,
             hashed_password=hashed_password,
             role=user_data.role,
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
             is_active=True
         )
         
@@ -140,31 +154,46 @@ class AuthService:
         )
 
     def get_user_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
-        """Ottiene il profilo completo di un utente"""
+        """Ottiene il profilo completo di un utente, mappato sullo schema UserProfile."""
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
             return None
         
-        # Ottieni il profilo specifico in base al ruolo
-        if user.role == Role.student:
-            profile = self.db.query(StudentProfile).filter(StudentProfile.user_id == user_id).first()
-        elif user.role == Role.tutor:
-            profile = self.db.query(TutorProfile).filter(TutorProfile.user_id == user_id).first()
-        elif user.role == Role.parent:
-            profile = self.db.query(ParentProfile).filter(ParentProfile.user_id == user_id).first()
-        else:
-            return None
-        
-        if not profile:
-            return None
-        
-        return {
+        result: Dict[str, Any] = {
             "id": user.id,
             "email": user.email,
             "role": user.role.value,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
             "is_active": user.is_active,
             "created_at": user.created_at,
-            "profile": profile.__dict__
         }
+        
+        if user.role == Role.student and user.student_profile:
+            sp = user.student_profile
+            result.update({
+                "first_name": sp.first_name,
+                "last_name": sp.last_name,
+                "school_level": sp.school_level,
+            })
+        elif user.role == Role.tutor and user.tutor_profile:
+            tp = user.tutor_profile
+            # subjects in questo modello è String; ritorniamo la stringa
+            result.update({
+                "first_name": tp.first_name,
+                "last_name": tp.last_name,
+                "bio": tp.bio,
+                "subjects": tp.subjects,
+                "hourly_rate": tp.hourly_rate,
+                "is_verified": tp.is_verified,
+            })
+        elif user.role == Role.parent and user.parent_profile:
+            pp = user.parent_profile
+            result.update({
+                "first_name": pp.first_name,
+                "last_name": pp.last_name,
+                "phone": pp.phone,
+            })
+        else:
+            # Profili mancanti
+            result.update({"first_name": "", "last_name": ""})
+        
+        return result

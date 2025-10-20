@@ -9,10 +9,10 @@ from app.core.config import settings
 from app.core.db import get_db
 from app.models.user import User, Role
 
-# Password hashing (esplicita gestione limite 72 byte)
+# Password hashing: usa solo bcrypt_sha256 (niente limite 72 byte)
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256", "bcrypt"],  # default: bcrypt_sha256; compat: bcrypt esistenti
-    deprecated=["bcrypt"],
+    schemes=["bcrypt_sha256"],
+    deprecated="auto",
 )
 
 # JWT token scheme
@@ -25,7 +25,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password using bcrypt_sha256 (nessun limite 72 byte)."""
+    """Hash con bcrypt_sha256 (no limite 72 byte)."""
     return pwd_context.hash(password)
 
 
@@ -80,24 +80,29 @@ def get_current_user(
             f.write("❌ Payload is None - token invalid\n")
         raise credentials_exception
     
-    user_id: int = payload.get("sub")
+    # Support both formats: payload with numeric user_id (preferred) or email in sub
+    raw_user_id = payload.get("user_id")
+    user_email = payload.get("sub")
     
     with open("/tmp/jwt_debug.log", "a") as f:
-        f.write(f"🔵 User ID from payload: {user_id} (type: {type(user_id)})\n")
+        f.write(f"🔵 Payload user_id: {raw_user_id}, sub(email): {user_email}\n")
     
-    if user_id is None:
-        with open("/tmp/jwt_debug.log", "a") as f:
-            f.write("❌ User ID is None\n")
-        raise credentials_exception
-    
-    user = db.query(User).filter(User.id == user_id).first()
+    user = None
+    if raw_user_id is not None:
+        try:
+            user = db.query(User).filter(User.id == int(raw_user_id)).first()
+        except Exception as e:
+            with open("/tmp/jwt_debug.log", "a") as f:
+                f.write(f"❌ Error casting user_id: {e}\n")
+    elif user_email:
+        user = db.query(User).filter(User.email == user_email).first()
     
     with open("/tmp/jwt_debug.log", "a") as f:
         f.write(f"🔵 User from DB: {user}\n")
     
     if user is None:
         with open("/tmp/jwt_debug.log", "a") as f:
-            f.write(f"❌ No user found with ID: {user_id}\n")
+            f.write(f"❌ No user found (user_id={raw_user_id}, sub={user_email})\n")
         raise credentials_exception
     
     with open("/tmp/jwt_debug.log", "a") as f:

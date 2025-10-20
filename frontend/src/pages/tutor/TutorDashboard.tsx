@@ -4,6 +4,7 @@ import { availabilityApi } from '../../api/availability';
 import type { AvailabilitySlot } from '../../api/availability';
 import { tutorApi } from '../../api/tutor';
 import type { TutorStats } from '../../api/tutor';
+import { useAuthStore } from '../../store/authStore';
 
 interface Lesson {
   id: number;
@@ -35,6 +36,14 @@ const TutorDashboard: React.FC = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const user = useAuthStore((s) => s.user);
+  const greetingName = (() => {
+    if (!user) return 'Tutor';
+    const email = user.email?.toLowerCase() || '';
+    if (email === 'giac.archi3@gmail.com') return 'Giacomo';
+    return user.first_name || 'Tutor';
+  })();
 
   const weekdays = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 
@@ -224,12 +233,8 @@ const TutorDashboard: React.FC = () => {
   };
 
   const canStartLesson = (lesson: Lesson) => {
-    const now = new Date();
-    const startTime = new Date(lesson.start_at);
-    const timeDiff = startTime.getTime() - now.getTime();
-    const minutesDiff = timeDiff / (1000 * 60);
-    
-    return lesson.status === 'confirmed' && minutesDiff <= 15 && minutesDiff >= -30;
+    // Mostra sempre il pulsante per lezioni confermate
+    return lesson.status === 'confirmed';
   };
 
   const getAvailabilitySummary = () => {
@@ -268,7 +273,7 @@ const TutorDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent flex items-center space-x-4">
+              <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent flex items-center space-x-4">
                 <span>Dashboard Tutor</span>
                 {pendingRequests.length > 0 && (
                   <span className="relative">
@@ -281,11 +286,16 @@ const TutorDashboard: React.FC = () => {
                   </span>
                 )}
           </h1>
-              <p className="text-white/70 mt-2 text-lg">
+              <div className="mt-3">
+                <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 text-white text-lg font-semibold shadow-lg">
+                  <span className="text-2xl">👋</span>
+                  <span>Bentornato, {greetingName}!</span>
+                </div>
+              </div>
+              <p className="text-white/80 mt-3 text-base">
                 {pendingRequests.length > 0 
                   ? `🔔 Hai ${pendingRequests.length} ${pendingRequests.length === 1 ? 'richiesta' : 'richieste'} in attesa`
-                  : 'Gestisci le tue lezioni e disponibilità'
-                }
+                  : 'Gestisci le tue lezioni e disponibilità'}
               </p>
             </div>
             <div className="flex space-x-4">

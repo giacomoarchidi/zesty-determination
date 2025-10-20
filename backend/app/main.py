@@ -28,6 +28,13 @@ app = FastAPI(
 @app.on_event("startup")
 async def run_migrations():
     """Esegui automaticamente le migrazioni del database all'avvio"""
+    # In produzione su Railway, salta le migrazioni automatiche
+    # Le migrazioni dovrebbero essere eseguite manualmente o tramite CI/CD
+    if settings.ENV == "prod":
+        logger.info("⏭️ Ambiente di produzione: le migrazioni automatiche sono disabilitate")
+        logger.info("✅ Applicazione pronta per il traffico")
+        return
+    
     try:
         logger.info("🔄 Esecuzione migrazioni database...")
         

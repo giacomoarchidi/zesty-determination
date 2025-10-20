@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { tutorApi } from '../../api/tutor';
 import { Link } from 'react-router-dom';
+import { apiClient } from '../../api/client';
 
 interface Assignment {
   id: string;
@@ -25,6 +27,19 @@ interface Student {
 }
 
 const AssignmentsPage: React.FC = () => {
+  const sanitizeAi = (txt?: string) => {
+    if (!txt) return '';
+    // rimuovi grassetto markdown ** e backticks, normalizza spaziature
+    return txt
+      .replace(/\*\*/g, '')
+      .replace(/`/g, '')
+      // rimuovi heading markdown (#, ##, ###)
+      .replace(/^\s*#{1,6}\s*/gm, '')
+      .replace(/\r/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
+
   const [assignments, setAssignments] = useState<Assignment[]>([
     {
       id: '1',
@@ -44,15 +59,11 @@ const AssignmentsPage: React.FC = () => {
       dueDate: '2024-10-18',
       difficulty: 'hard',
       points: 25,
-      status: 'draft'
+      status: 'published'
     }
   ]);
 
-  const [students] = useState<Student[]>([
-    { id: '1', name: 'Marco Rossi', email: 'marco.rossi@student.com', grade: '3° Liceo' },
-    { id: '2', name: 'Giulia Bianchi', email: 'giulia.bianchi@student.com', grade: '3° Liceo' },
-    { id: '3', name: 'Luca Verdi', email: 'luca.verdi@student.com', grade: '2° Liceo' },
-  ]);
+  const [students, setStudents] = useState<Student[]>([]);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newAssignment, setNewAssignment] = useState<Partial<Assignment>>({
@@ -62,10 +73,186 @@ const AssignmentsPage: React.FC = () => {
     dueDate: '',
     difficulty: 'medium',
     points: 10,
-    status: 'draft'
+    status: 'published'
   });
 
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [aiDifficulty, setAiDifficulty] = useState<'easy'|'medium'|'hard'>('medium');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiGeneratedOk, setAiGeneratedOk] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+  const [expandPreview, setExpandPreview] = useState(false);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<string>('');
+
+  useEffect(() => {
+    if (!selectedStudent && students.length > 0) {
+      setSelectedStudent(students[0].id);
+    }
+  }, [students, selectedStudent]);
+
+  useEffect(() => {
+    // Carica studenti reali assegnati al tutor
+    (async () => {
+      try {
+        const res = await tutorApi.getStudents();
+        const fetched = (res?.students || []).map((s: any) => ({
+          id: String(s.id),
+          name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Studente',
+          email: s.email || '',
+          grade: s.school_level || ''
+        }));
+        setStudents(fetched);
+      } catch (e) {
+        console.error('Errore caricamento studenti tutor', e);
+        setStudents([]);
+      }
+    })();
+  }, []);
+
+  const escapeHtml = (raw: string) =>
+    raw
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+
+  // Aggiunge automaticamente delimitatori LaTeX a righe che contengono \in, \infty, \frac, ecc.
+  const autoWrapLatex = (line: string): string => {
+    if (line.includes('$') || line.includes('\\(') || line.includes('\\[')) return line;
+    const hasLatexToken = /\\(infty|in|frac|left|right|cup|cap|leq|geq|neq|sqrt|pm|cdot|times|forall|exists|to|lim|sum|prod|int|pi|approx)/.test(line) || /[\^_]/.test(line);
+    if (!hasLatexToken) return line;
+    const m = line.match(/^\s*(Disequazione|Soluzione)\s*:\s*(.*)$/i);
+    if (m) {
+      const head = m[1];
+      const rest = m[2];
+      return `${head}: \\(${rest}\\)`;
+    }
+    // Prova a isolare la parte matematica e lasciare il testo finale (es. "secondi") fuori dal math
+    const wordAfterMath = line.match(/\s(?!\\)([A-Za-zÀ-ÿ]{3,})/);
+    if (wordAfterMath) {
+      const cut = wordAfterMath.index ?? -1;
+      if (cut > 0) {
+        const mathPart = line.slice(0, cut).trimEnd();
+        const textPart = line.slice(cut).trimStart();
+        return `\\(${mathPart}\\) ${textPart}`;
+      }
+    }
+    return `\\(${line}\\)`;
+  };
+
+  // parse LaTeX delimiters and render with KaTeX in-place into HTML string
+  const renderWithLatex = (raw: string): string => {
+    const tokens: { open: string; close: string; display: boolean; }[] = [
+      { open: '$$', close: '$$', display: true },
+      { open: '\\(', close: '\\)', display: false },
+      { open: '$', close: '$', display: false },
+    ];
+    let i = 0;
+    let out = '';
+    while (i < raw.length) {
+      let nextIdx = -1; let t: any = null;
+      for (const tk of tokens) {
+        const idx = raw.indexOf(tk.open, i);
+        if (idx !== -1 && (nextIdx === -1 || idx < nextIdx)) { nextIdx = idx; t = tk; }
+      }
+      if (nextIdx === -1 || !t) { out += escapeHtml(raw.slice(i)); break; }
+      out += escapeHtml(raw.slice(i, nextIdx));
+      const start = nextIdx + t.open.length;
+      const end = raw.indexOf(t.close, start);
+      if (end === -1) { out += escapeHtml(raw.slice(nextIdx)); break; }
+      const expr = raw.slice(start, end);
+      try {
+        const w = window as any;
+        if (w.katex && typeof w.katex.renderToString === 'function') {
+          out += w.katex.renderToString(expr, { displayMode: t.display, throwOnError: false });
+        } else {
+          out += `<code class=\"text-pink-300\">${escapeHtml(expr)}</code>`;
+        }
+      } catch (_) {
+        out += `<code class=\"text-pink-300\">${escapeHtml(expr)}</code>`;
+      }
+      i = end + t.close.length;
+    }
+    return out;
+  };
+
+  const buildPreviewHtml = (text: string) => {
+    if (!text) return '<div class="text-white/50">Nessuna descrizione ancora disponibile.</div>';
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+    let inOl = false;
+    for (let line of lines) {
+      line = autoWrapLatex(line);
+      const trimmed = line.trim();
+      // Sezioni riconosciute con stile giocoso
+      if (/^titolo\s*:/i.test(trimmed)) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOl) { html += '</ol>'; inOl = false; }
+        const val = trimmed.replace(/^titolo\s*:/i, '').trim();
+        html += `<div class=\"mb-2 flex items-center gap-2\"><span class=\"px-2 py-0.5 text-xs rounded-full bg-pink-500/20 text-pink-300 border border-pink-400/30\">Titolo</span><span class=\"font-semibold text-white\">${renderWithLatex(val)}</span></div>`;
+        continue;
+      }
+      if (/^descrizione\s*:/i.test(trimmed)) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOl) { html += '</ol>'; inOl = false; }
+        html += '<h4 class="mt-3 mb-2 text-white font-semibold flex items-center gap-2"><span class="text-yellow-300">🗒️</span><span>Descrizione</span></h4>';
+        const val = trimmed.replace(/^descrizione\s*:/i, '').trim();
+        if (val) html += `<p class=\"mb-2 leading-relaxed\">${renderWithLatex(val)}</p>`;
+        continue;
+      }
+      if (/^istruzioni\s*:/i.test(trimmed)) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOl) { html += '</ol>'; inOl = false; }
+        html += '<h4 class="mt-3 mb-2 text-white font-semibold flex items-center gap-2"><span class="text-blue-300">🧭</span><span>Istruzioni</span></h4>';
+        const val = trimmed.replace(/^istruzioni\s*:/i, '').trim();
+        if (val) html += `<p class=\"mb-2 leading-relaxed\">${renderWithLatex(val)}</p>`;
+        continue;
+      }
+      if (trimmed.startsWith('- ')) {
+        if (!inList) { html += '<ul class="list-disc pl-6 space-y-1">'; inList = true; }
+        html += `<li><span class=\"inline-block w-2 h-2 rounded-full bg-cyan-400 mr-2 align-middle\"></span>${renderWithLatex(trimmed.slice(2))}</li>`;
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        // ordered list tipo "1. " o "1) "
+        const olMatch = trimmed.match(/^(\d+)[\.|\)]\s+(.*)$/);
+        if (olMatch) {
+          if (!inOl) { html += '<ol class="list-decimal pl-6 space-y-1">'; inOl = true; }
+          html += `<li>${renderWithLatex(olMatch[2])}</li>`;
+          continue;
+        } else if (inOl) { html += '</ol>'; inOl = false; }
+        if (/^soluzioni:?/i.test(trimmed)) {
+          html += '<h4 class="mt-3 mb-2 text-white font-semibold">Soluzioni</h4>';
+        } else if (trimmed.length > 0) {
+          html += `<p class=\"mb-2 leading-relaxed\">${renderWithLatex(trimmed)}</p>`;
+        } else {
+          html += '<br />';
+        }
+      }
+    }
+    if (inList) html += '</ul>';
+    if (inOl) html += '</ol>';
+    return html;
+  };
+
+  // Render LaTeX (KaTeX) quando cambia la descrizione
+  useEffect(() => {
+    try {
+      const w = window as any;
+      if (w.renderMathInElement && previewRef.current) {
+        w.renderMathInElement(previewRef.current, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$', right: '$', display: false },
+            { left: '[latex]', right: '[/latex]', display: true }
+          ],
+          throwOnError: false
+        });
+      }
+    } catch (_) {}
+  }, [newAssignment.description, showPreview]);
+
+  
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
@@ -110,7 +297,7 @@ const AssignmentsPage: React.FC = () => {
       dueDate: newAssignment.dueDate!,
       difficulty: newAssignment.difficulty!,
       points: newAssignment.points!,
-      status: 'draft',
+      status: 'published',
       attachments: attachments.length > 0 ? attachments : undefined
     };
 
@@ -122,7 +309,7 @@ const AssignmentsPage: React.FC = () => {
       dueDate: '',
       difficulty: 'medium',
       points: 10,
-      status: 'draft'
+      status: 'published'
     });
     setUploadedFiles([]);
     setShowCreateForm(false);
@@ -210,7 +397,7 @@ const AssignmentsPage: React.FC = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 text-center">
             <div className="text-3xl mb-2">📚</div>
             <div className="text-2xl font-bold text-white">{assignments.length}</div>
@@ -220,11 +407,6 @@ const AssignmentsPage: React.FC = () => {
             <div className="text-3xl mb-2">✅</div>
             <div className="text-2xl font-bold text-white">{assignments.filter(a => a.status === 'published').length}</div>
             <div className="text-white/70">Pubblicati</div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 text-center">
-            <div className="text-3xl mb-2">📝</div>
-            <div className="text-2xl font-bold text-white">{assignments.filter(a => a.status === 'draft').length}</div>
-            <div className="text-white/70">Bozze</div>
           </div>
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 text-center">
             <div className="text-3xl mb-2">👥</div>
@@ -240,6 +422,7 @@ const AssignmentsPage: React.FC = () => {
               <h2 className="text-2xl font-bold text-white mb-6">Crea Nuovo Compito</h2>
               
               <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-white/70 mb-2">Titolo</label>
                   <input
@@ -250,7 +433,6 @@ const AssignmentsPage: React.FC = () => {
                     placeholder="Es. Equazioni di Secondo Grado"
                   />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-white/70 mb-2">Materia</label>
@@ -266,12 +448,11 @@ const AssignmentsPage: React.FC = () => {
                       <option value="Inglese">Inglese</option>
                     </select>
                   </div>
-                  
                   <div>
                     <label className="block text-white/70 mb-2">Difficoltà</label>
                     <select
-                      value={newAssignment.difficulty}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, difficulty: e.target.value as any }))}
+                        value={aiDifficulty}
+                        onChange={(e) => setAiDifficulty(e.target.value as any)}
                       className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       <option value="easy">Facile</option>
@@ -280,126 +461,124 @@ const AssignmentsPage: React.FC = () => {
                     </select>
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-white/70 mb-2">Descrizione</label>
-                  <textarea
-                    value={newAssignment.description}
-                    onChange={(e) => setNewAssignment(prev => ({ ...prev, description: e.target.value }))}
-                    rows={4}
-                    className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    placeholder="Descrivi il compito e le istruzioni per gli studenti..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-white/70 mb-2">Scadenza</label>
-                    <input
-                      type="date"
-                      value={newAssignment.dueDate}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, dueDate: e.target.value }))}
+                    <label className="block text-white/70 mb-2">Studente</label>
+                    <select
+                      value={selectedStudent}
+                      onChange={(e)=>setSelectedStudent(e.target.value)}
                       className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-white/70 mb-2">Punti</label>
-                    <input
-                      type="number"
-                      value={newAssignment.points}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      min="1"
-                      max="100"
-                    />
-                  </div>
-                </div>
-
-                {/* File Upload Section */}
-                <div>
-                  <label className="block text-white/70 mb-2">📎 Allegati (opzionale)</label>
-                  <div className="border-2 border-dashed border-white/30 rounded-xl p-6 hover:border-blue-400/50 transition-all duration-300">
-                    <input
-                      type="file"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      id="file-upload"
-                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip"
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className="flex flex-col items-center cursor-pointer group"
                     >
-                      <div className="w-16 h-16 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
-                        <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                      </div>
-                      <p className="text-white font-medium mb-1">Clicca per caricare file</p>
-                      <p className="text-white/50 text-sm">PDF, DOC, TXT, immagini, ZIP (max 10MB)</p>
-                    </label>
-                  </div>
-
-                  {/* Uploaded Files List */}
-                  {uploadedFiles.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <p className="text-white/70 text-sm font-medium mb-2">File caricati ({uploadedFiles.length}):</p>
-                      {uploadedFiles.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3 group hover:bg-white/10 transition-all duration-300"
-                        >
-                          <div className="flex items-center space-x-3 flex-1">
-                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-lg flex items-center justify-center">
-                              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-white font-medium truncate">{file.name}</p>
-                              <p className="text-white/50 text-sm">{formatFileSize(file.size)}</p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => removeFile(index)}
-                            className="ml-3 w-8 h-8 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg flex items-center justify-center transition-all duration-300 opacity-0 group-hover:opacity-100"
-                            title="Rimuovi file"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
+                      {students.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} • {s.grade}</option>
                       ))}
+                    </select>
                     </div>
-                  )}
                 </div>
 
-                <div>
-                  <label className="block text-white/70 mb-4">Assegna a Studenti</label>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {students.map(student => (
-                      <label key={student.id} className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg">
-                        <input
-                          type="checkbox"
-                          checked={selectedStudents.includes(student.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedStudents(prev => [...prev, student.id]);
+                {/* Anteprima Compito generata dall'AI */}
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-600/10 via-purple-600/10 to-pink-600/10 border border-white/10">
+                  {/* Riga 1: titolo a sinistra, azioni a destra */}
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <h3 className="text-white font-semibold flex items-center gap-2 text-base md:text-lg">
+                      <span>🧩</span> Anteprima Compito
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        disabled={isGenerating || !newAssignment.title}
+                        onClick={async ()=>{
+                          try{
+                            if (!selectedStudent) { alert('Seleziona uno studente'); return; }
+                            setIsGenerating(true);
+                            const { data } = await apiClient.post('/assignments/generate', {
+                              topic: newAssignment.title || '',
+                              difficulty: aiDifficulty,
+                              subject: newAssignment.subject || 'Matematica',
+                              student_id: Number(selectedStudent)||0,
+                            });
+                            if(data){
+                              const title = sanitizeAi(data.title) || (newAssignment.title || '');
+                              const parts: string[] = [];
+                              if (data.description) parts.push(sanitizeAi(data.description));
+                              if (data.instructions) parts.push('Istruzioni:\n' + sanitizeAi(data.instructions));
+                              if (data.solutions) parts.push('Soluzioni:\n' + sanitizeAi(data.solutions));
+                              const description = parts.join('\n\n');
+                              setNewAssignment(prev=>({ ...prev, title, description }));
+                              setAiGeneratedOk(true);
+                              setTimeout(()=>setAiGeneratedOk(false), 1500);
                             } else {
-                              setSelectedStudents(prev => prev.filter(id => id !== student.id));
+                              alert('Errore generazione AI');
                             }
-                          }}
-                          className="w-4 h-4 text-blue-600 bg-white/10 border-white/20 rounded focus:ring-blue-500"
-                        />
-                        <div>
-                          <div className="text-white font-medium">{student.name}</div>
-                          <div className="text-white/70 text-sm">{student.grade}</div>
-                        </div>
-                      </label>
-                    ))}
+                          } catch (err:any) {
+                            console.error('AI generate error', err);
+                            alert(err?.response?.data?.detail || 'Errore generazione AI');
+                          } finally { setIsGenerating(false); }
+                        }}
+                        className={`min-w-[150px] px-4 py-2 rounded-lg flex items-center justify-center gap-2 ${isGenerating? 'bg-white/20 text-white/60':'bg-purple-600 hover:bg-purple-700 text-white'}`}
+                      >
+                        {isGenerating && (
+                          <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                          </svg>
+                        )}
+                        {isGenerating? 'Generazione…' : '✨ Genera con AI'}
+                      </button>
+                      <button
+                        onClick={async ()=>{
+                          // crea compito su backend per lo studente selezionato
+                          try {
+                            if (!selectedStudent) { alert('Seleziona uno studente'); return; }
+                            if (!newAssignment.title || !newAssignment.description) { alert('Titolo e contenuto mancanti'); return; }
+                            const due = new Date();
+                            due.setDate(due.getDate() + 7);
+                            // invia datetime senza timezone per evitare confronto naive/aware nel backend
+                            const dueStr = new Date(due.getTime() - due.getTimezoneOffset()*60000).toISOString().slice(0,19);
+                            const payload = {
+                              title: newAssignment.title,
+                              description: newAssignment.description,
+                              instructions: 'Segui le indicazioni nella descrizione.',
+                              subject: newAssignment.subject || 'Matematica',
+                              due_date: dueStr,
+                              points: 100,
+                              student_id: Number(selectedStudent),
+                              is_published: true
+                            };
+                            const res = await apiClient.post('/assignments', payload).catch((e:any)=>{
+                              console.error('Assign API error:', e?.response?.data || e);
+                              throw e;
+                            });
+                            if (res?.data?.id) {
+                              alert('📤 Compito assegnato allo studente!');
+                              setShowCreateForm(false);
+                            } else {
+                              alert('Errore creazione compito');
+                            }
+                          } catch (e:any) {
+                            console.error('Errore assegnazione compito', e);
+                            alert(e?.response?.data?.detail || 'Errore assegnazione compito');
+                          }
+                        }}
+                        disabled={!newAssignment.description || !newAssignment.title}
+                        className="min-w-[120px] px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        📤 Assegna
+                      </button>
+                    </div>
+                  </div>
+                  {/* Riga 2: chip materia e difficoltà sotto il titolo */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">{newAssignment.subject || 'Materia'}</span>
+                    <span className={`px-2 py-0.5 text-xs rounded-full border ${aiDifficulty==='easy' ? 'bg-green-500/20 text-green-300 border-green-400/30' : aiDifficulty==='medium' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30' : 'bg-red-500/20 text-red-300 border-red-400/30'}`}>{getDifficultyText(aiDifficulty)}</span>
+                  </div>
+                  {aiGeneratedOk && <div className="text-emerald-300 text-sm mb-2">Contenuto aggiornato ✓</div>}
+                  <div className={`relative rounded-xl border border-white/15 bg-gradient-to-br from-gray-800/60 to-gray-800/30 p-4 text-white/90 ${expandPreview ? '' : 'max-h-60 overflow-hidden'}`}
+                    ref={previewRef}
+                    dangerouslySetInnerHTML={{ __html: buildPreviewHtml(newAssignment.description || '') }}
+                  />
+                  <div className="flex justify-end mt-2">
+                    <button onClick={()=>setExpandPreview(v=>!v)} className="text-sm text-blue-300 hover:text-blue-200">
+                      {expandPreview ? 'Mostra meno' : 'Mostra di più'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -436,13 +615,6 @@ const AssignmentsPage: React.FC = () => {
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(assignment.difficulty)}`}>
                         {getDifficultyText(assignment.difficulty)}
                       </span>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        assignment.status === 'published' 
-                          ? 'text-green-400 bg-cyan-500/20' 
-                          : 'text-yellow-400 bg-yellow-500/20'
-                      }`}>
-                        {assignment.status === 'published' ? 'Pubblicato' : 'Bozza'}
-                      </span>
                     </div>
                     <p className="text-white/70 mb-2">{assignment.description}</p>
                     <div className="flex items-center space-x-6 text-sm text-white/60 mb-3">
@@ -477,14 +649,6 @@ const AssignmentsPage: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    {assignment.status === 'draft' && (
-                      <button
-                        onClick={() => publishAssignment(assignment.id)}
-                        className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-medium rounded-lg transition-colors"
-                      >
-                        📢 Pubblica
-                      </button>
-                    )}
                     <button
                       onClick={() => deleteAssignment(assignment.id)}
                       className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium rounded-lg transition-colors border border-red-400/30"

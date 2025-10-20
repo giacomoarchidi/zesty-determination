@@ -21,6 +21,17 @@ const Register: React.FC = () => {
   const { register, isLoading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
 
+  // Troncamento sicuro a 72 byte in UTF-8 (limite bcrypt puro)
+  const truncateUtf8 = (input: string, maxBytes: number) => {
+    const enc = new TextEncoder();
+    const bytes = enc.encode(input);
+    if (bytes.length <= maxBytes) return input;
+    const sliced = bytes.slice(0, maxBytes);
+    // decodifica ignorando eventuali code unit incomplete
+    const dec = new TextDecoder('utf-8', { fatal: false });
+    return dec.decode(sliced);
+  };
+
   useEffect(() => {
     clearError();
   }, [clearError]);
@@ -38,6 +49,11 @@ const Register: React.FC = () => {
       newErrors.password = 'Password è richiesta';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password deve essere di almeno 8 caratteri';
+    } else {
+      // Enforce limite 72 byte (compat produzione)
+      if (new TextEncoder().encode(formData.password).length > 72) {
+        newErrors.password = 'Password troppo lunga (max 72 byte)';
+      }
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -70,10 +86,17 @@ const Register: React.FC = () => {
     if (!validateForm()) return;
 
     try {
+      // Prepara payload senza conferma password e con password troncata a 72 byte se necessario
+      const safePassword = truncateUtf8(formData.password, 72);
+      const {
+        confirmPassword, // eslint-disable-line @typescript-eslint/no-unused-vars
+        ...rest
+      } = formData;
       const userData = {
-        ...formData,
-        hourly_rate: formData.hourly_rate ? Number(formData.hourly_rate) : undefined,
-      };
+        ...rest,
+        password: safePassword,
+        hourly_rate: rest.hourly_rate ? Number(rest.hourly_rate) : undefined,
+      } as any;
       
       await register(userData);
       navigate('/login');

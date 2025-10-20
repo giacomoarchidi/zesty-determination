@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from typing import Optional, Dict, Any
-import openai
+from openai import OpenAI
 from datetime import datetime, timedelta
 import json
 import os
@@ -20,9 +20,14 @@ class AIService:
     
     def __init__(self):
         self.is_enabled = False
+        self.client: Optional[OpenAI] = None
         if settings.OPENAI_API_KEY:
-            openai.api_key = settings.OPENAI_API_KEY
-            self.is_enabled = True
+            try:
+                self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                self.is_enabled = True
+            except Exception:
+                self.client = None
+                self.is_enabled = False
         else:
             # In development, AI is optional
             print("⚠️  OpenAI API key not configured - AI features disabled")
@@ -109,8 +114,10 @@ IMPORTANTE: Non inventare contenuti. Usa solo le informazioni fornite. Se mancan
 """
         
         try:
-            response = openai.ChatCompletion.create(
-                model=settings.OPENAI_MODEL or "gpt-4",
+            if not self.client:
+                raise RuntimeError("OpenAI client non inizializzato")
+            response = self.client.chat.completions.create(
+                model=settings.OPENAI_MODEL or "gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "Sei un tutor esperto che genera appunti chiari e strutturati per studenti."},
                     {"role": "user", "content": prompt}
@@ -118,8 +125,7 @@ IMPORTANTE: Non inventare contenuti. Usa solo le informazioni fornite. Se mancan
                 max_tokens=1000,
                 temperature=0.7
             )
-            
-            return response.choices[0].message.content.strip()
+            return (response.choices[0].message.content or "").strip()
             
         except Exception as e:
             raise HTTPException(
@@ -185,9 +191,10 @@ IMPORTANTE: Non inventare contenuti. Usa solo le informazioni fornite. Se mancan
             
             Scrivi in italiano, in modo professionale ma comprensibile per i genitori.
             """
-            
-            response = openai.ChatCompletion.create(
-                model=settings.OPENAI_MODEL or "gpt-4",
+            if not self.client:
+                raise RuntimeError("OpenAI client non inizializzato")
+            response = self.client.chat.completions.create(
+                model=settings.OPENAI_MODEL or "gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "Sei un tutor esperto che scrive report mensili per genitori. Scrivi in modo professionale e costruttivo."},
                     {"role": "user", "content": prompt}
@@ -195,8 +202,7 @@ IMPORTANTE: Non inventare contenuti. Usa solo le informazioni fornite. Se mancan
                 max_tokens=1000,
                 temperature=0.7
             )
-            
-            return response.choices[0].message.content.strip()
+            return (response.choices[0].message.content or "").strip()
             
         except Exception as e:
             print(f"Error generating monthly report: {e}")
@@ -229,3 +235,141 @@ def generate_lesson_notes_task(lesson_id: int):
 
 # Global instance for use in other services
 ai_service = AIService()
+
+# --- Assignment generation ---
+def generate_assignment_with_openai(topic: str, difficulty: str, subject: str) -> Dict[str, str]:
+    """Generate structured assignment using OpenAI."""
+    model = settings.OPENAI_MODEL or "gpt-4o-mini"
+    if not settings.OPENAI_API_KEY:
+        # Fallback mock
+        return {
+            "title": f"Compito: {topic}",
+            "description": f"Compito di {subject} sul tema: {topic}. Difficoltà: {difficulty}.",
+            "instructions": "1) Esegui gli esercizi proposti. 2) Mostra tutti i passaggi. 3) Consegna entro la data indicata.",
+            "solutions": "Soluzioni: ..."
+        }
+
+    sys = "Sei un docente. Genera un compito chiaro, strutturato e in italiano. Includi alla fine un blocco 'Soluzioni'."
+    usr = f"""
+Argomento: {topic}
+Materia: {subject}
+Difficoltà: {difficulty}
+
+Genera:
+- Titolo sintetico
+- Descrizione con contesto
+- Istruzioni puntuali (elenco)
+- Alla fine un blocco 'Soluzioni' con risposte corrette
+"""
+    try:
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": sys},
+                {"role": "user", "content": usr},
+            ],
+            temperature=0.7,
+            max_tokens=900
+        )
+        content = (resp.choices[0].message.content or "").strip()
+        # naive split of solutions block
+        parts = content.split("Soluzioni")
+        title = f"Compito: {topic}"
+        description = content
+        instructions = "Segui le indicazioni nel testo."
+        solutions = "Soluzioni" + parts[1] if len(parts) > 1 else ""
+        return {
+            "title": title,
+            "description": description,
+            "instructions": instructions,
+            "solutions": solutions
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI error: {e}")
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from app.core.db import get_db
 from app.core.security import get_current_user
@@ -33,6 +33,43 @@ class RoomStatus(BaseModel):
     participants_count: int
     start_time: str
     end_time: str
+
+# ----------------------
+#  Quiz (in-memory MVP)
+# ----------------------
+
+class QuizLaunchRequest(BaseModel):
+    question: str
+    options: List[str]
+    correct_index: int
+
+class QuizState(BaseModel):
+    active: bool
+    question: Optional[str] = None
+    options: Optional[List[str]] = None
+    reveal: bool = False
+    answers_count: Dict[int, int] = {}
+
+class QuizAnswerRequest(BaseModel):
+    answer_index: int
+
+class QuizAnswerResponse(BaseModel):
+    accepted: bool
+    correct: Optional[bool] = None
+
+# lesson_id -> state
+_QUIZ_STATE: Dict[int, Dict[str, Any]] = {}
+
+# ----------------------
+#  AI Notes (in-memory)
+# ----------------------
+
+class NotesState(BaseModel):
+    active: bool
+    lines: List[str]
+
+# lesson_id -> notes state
+_NOTES_STATE: Dict[int, Dict[str, Any]] = {}
 
 @router.post("/join", response_model=JoinRoomResponse)
 async def join_video_room(
@@ -200,3 +237,225 @@ async def stop_recording(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Errore interno del server"
         )
+
+# ----------------------
+# Quiz endpoints
+# ----------------------
+
+@router.post("/room/{lesson_id}/quiz/launch", response_model=QuizState)
+async def launch_quiz(
+    lesson_id: int,
+    payload: QuizLaunchRequest,
+    current_user: User = Depends(require_roles([Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Verifica che sia il tutor della lezione
+        from app.models.lesson import Lesson
+        lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+        if not lesson or lesson.tutor_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo il tutor può lanciare un quiz"
+            )
+
+        if not payload.options or len(payload.options) < 2:
+            raise HTTPException(status_code=400, detail="Fornire almeno 2 opzioni")
+        if payload.correct_index < 0 or payload.correct_index >= len(payload.options):
+            raise HTTPException(status_code=400, detail="Indice risposta corretta non valido")
+
+        _QUIZ_STATE[lesson_id] = {
+            "active": True,
+            "question": payload.question,
+            "options": payload.options,
+            "correct_index": payload.correct_index,
+            "reveal": False,
+            "answers": {},  # user_id -> answer_index
+            "launched_at": datetime.utcnow().isoformat(),
+        }
+
+        logger.info(f"Quiz lanciato per lezione {lesson_id} da tutor {current_user.id}")
+        return QuizState(
+            active=True,
+            question=payload.question,
+            options=payload.options,
+            reveal=False,
+            answers_count={}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore launch quiz: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
+@router.get("/room/{lesson_id}/quiz", response_model=QuizState)
+async def get_quiz_state(
+    lesson_id: int,
+    current_user: User = Depends(require_roles([Role.student, Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Verifica accesso
+        agora_service = AgoraService(db)
+        if not agora_service.validate_lesson_access(lesson_id, current_user.id):
+            raise HTTPException(status_code=403, detail="Accesso negato alla lezione")
+
+        state = _QUIZ_STATE.get(lesson_id)
+        if not state or not state.get("active"):
+            return QuizState(active=False, reveal=False, answers_count={})
+
+        # aggrega conteggi risposte (senza rivelare la corretta se non reveal)
+        answers: Dict[int, int] = {}
+        for _, idx in state.get("answers", {}).items():
+            answers[idx] = answers.get(idx, 0) + 1
+
+        return QuizState(
+            active=True,
+            question=state.get("question"),
+            options=state.get("options"),
+            reveal=bool(state.get("reveal")),
+            answers_count=answers
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore get quiz: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
+@router.post("/room/{lesson_id}/quiz/answer", response_model=QuizAnswerResponse)
+async def answer_quiz(
+    lesson_id: int,
+    payload: QuizAnswerRequest,
+    current_user: User = Depends(require_roles([Role.student, Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Verifica accesso
+        agora_service = AgoraService(db)
+        if not agora_service.validate_lesson_access(lesson_id, current_user.id):
+            raise HTTPException(status_code=403, detail="Accesso negato alla lezione")
+
+        state = _QUIZ_STATE.get(lesson_id)
+        if not state or not state.get("active"):
+            return QuizAnswerResponse(accepted=False)
+
+        options = state.get("options", [])
+        if payload.answer_index < 0 or payload.answer_index >= len(options):
+            raise HTTPException(status_code=400, detail="Indice risposta non valido")
+
+        # registra/aggiorna risposta utente
+        answers: Dict[int, int] = state.setdefault("answers", {})
+        answers[current_user.id] = payload.answer_index
+
+        is_correct = payload.answer_index == state.get("correct_index")
+        return QuizAnswerResponse(accepted=True, correct=is_correct)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore answer quiz: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
+@router.post("/room/{lesson_id}/quiz/close", response_model=QuizState)
+async def close_quiz(
+    lesson_id: int,
+    current_user: User = Depends(require_roles([Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Verifica tutor
+        from app.models.lesson import Lesson
+        lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+        if not lesson or lesson.tutor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Solo il tutor può chiudere il quiz")
+
+        state = _QUIZ_STATE.get(lesson_id)
+        if not state:
+            return QuizState(active=False, reveal=False, answers_count={})
+
+        state["reveal"] = True
+        # disattiva il quiz dopo la rivelazione per evitare apertura automatica
+        state["active"] = False
+        answers: Dict[int, int] = {}
+        for _, idx in state.get("answers", {}).items():
+            answers[idx] = answers.get(idx, 0) + 1
+
+        return QuizState(
+            active=False,
+            question=state.get("question"),
+            options=state.get("options"),
+            reveal=True,
+            answers_count=answers
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore close quiz: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
+# ----------------------
+# Notes endpoints
+# ----------------------
+
+@router.post("/room/{lesson_id}/notes/start", response_model=NotesState)
+async def start_notes(
+    lesson_id: int,
+    current_user: User = Depends(require_roles([Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Verifica tutor
+        from app.models.lesson import Lesson
+        lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+        if not lesson or lesson.tutor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Solo il tutor può avviare gli appunti AI")
+
+        state = _NOTES_STATE.setdefault(lesson_id, {"active": False, "lines": []})
+        state["active"] = True
+        logger.info(f"AI notes avviati per lezione {lesson_id}")
+        return NotesState(active=True, lines=state["lines"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore start notes: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
+@router.post("/room/{lesson_id}/notes/stop", response_model=NotesState)
+async def stop_notes(
+    lesson_id: int,
+    current_user: User = Depends(require_roles([Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    try:
+        state = _NOTES_STATE.setdefault(lesson_id, {"active": False, "lines": []})
+        state["active"] = False
+        logger.info(f"AI notes fermati per lezione {lesson_id}")
+        return NotesState(active=False, lines=state["lines"])
+    except Exception as e:
+        logger.error(f"Errore stop notes: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
+@router.get("/room/{lesson_id}/notes", response_model=NotesState)
+async def get_notes(
+    lesson_id: int,
+    current_user: User = Depends(require_roles([Role.student, Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    try:
+        # accesso lezione
+        agora_service = AgoraService(db)
+        if not agora_service.validate_lesson_access(lesson_id, current_user.id):
+            raise HTTPException(status_code=403, detail="Accesso negato alla lezione")
+
+        state = _NOTES_STATE.setdefault(lesson_id, {"active": False, "lines": []})
+        return NotesState(active=bool(state["active"]), lines=list(state["lines"]))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore get notes: {str(e)}")
+        raise HTTPException(status_code=500, detail="Errore interno del server")

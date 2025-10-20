@@ -79,3 +79,17 @@ class AssignmentSubmissionResponse(BaseModel):
 class AssignmentGrading(BaseModel):
     grade: int = Field(..., ge=0, le=100, description="Voto da 0 a 100")
     feedback: str = Field(..., min_length=1, description="Feedback per lo studente")
+
+
+# === AI Generation ===
+class AssignmentGenerateRequest(BaseModel):
+    topic: str = Field(..., min_length=2, description="Argomento del compito da generare")
+    difficulty: str = Field(..., description="Difficoltà (easy|medium|hard)")
+    subject: str = Field(..., min_length=2, description="Materia")
+    student_id: int = Field(..., description="ID dello studente destinatario")
+
+class AssignmentDraftResponse(BaseModel):
+    title: str
+    description: str
+    instructions: str
+    solutions: str

@@ -6,7 +6,7 @@ import AgoraRTC, {
   type ICameraVideoTrack,
   type IMicrophoneAudioTrack
 } from 'agora-rtc-sdk-ng';
-import { videoApi, type JoinRoomResponse } from '../../api/video';
+import { videoApi, type JoinRoomResponse, type QuizState } from '../../api/video';
 import { useAuthStore } from '../../store/authStore';
 
 const VideoRoom: React.FC = () => {
@@ -28,6 +28,18 @@ const VideoRoom: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining] = useState<string>('');
+  const [quiz, setQuiz] = useState<QuizState>({ active: false, reveal: false, answers_count: {} });
+  const [answerIndex, setAnswerIndex] = useState<number | null>(null);
+  const [answerResult, setAnswerResult] = useState<boolean | null>(null);
+  const [quizVisible, setQuizVisible] = useState<boolean>(false);
+  const [showNotes, setShowNotes] = useState<boolean>(false);
+  const [notesLines, setNotesLines] = useState<string[]>([]);
+  const [notesHidden, setNotesHidden] = useState<boolean>(true);
+  const [notesActive, setNotesActive] = useState<boolean>(false);
+  const isTutor = (user?.role || '').toLowerCase() === 'tutor';
+  const recognitionRef = useRef<any>(null);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
+  const [interimText, setInterimText] = useState<string>('');
   
   // Refs
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -163,6 +175,70 @@ const VideoRoom: React.FC = () => {
     };
   }, [joinData]);
 
+  // Reset su nuova lezione
+  useEffect(() => {
+    setShowNotes(false);
+    setNotesHidden(true);
+    setNotesLines([]);
+    setAnswerIndex(null);
+    setAnswerResult(null);
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+        setIsTranscribing(false);
+      }
+    } catch (_) {}
+  }, [lessonId]);
+
+  // Poll quiz and notes state ogni 2s
+  useEffect(() => {
+    if (!lessonId) return;
+    let timer: any;
+    const tick = async () => {
+      try {
+        const [q, n] = await Promise.all([
+          videoApi.getQuiz(Number(lessonId)),
+          videoApi.getNotes(Number(lessonId))
+        ]);
+        setQuiz(q);
+        setNotesActive(Boolean(n.active));
+        setNotesLines(prev => {
+          const backendLines = n.lines || [];
+          if (isTranscribing) return prev; // non toccare mentre stiamo trascrivendo
+          if (backendLines.length > prev.length) return backendLines; // aggiorna solo se ci sono più righe
+          return prev;
+        });
+        // Mostra se attivo o se ci sono note (ma non forzare se nascosto manualmente)
+        setShowNotes(notesHidden ? false : (Boolean(n.active) || ((n.lines || []).length > 0)));
+      } catch (e) {
+        // ignora errori transitori
+      } finally {
+        timer = setTimeout(tick, 2000);
+      }
+    };
+    tick();
+    return () => timer && clearTimeout(timer);
+  }, [lessonId, notesHidden]);
+
+  // Mostra quiz solo al cambio stato (false -> true). Se l'utente chiude, non riaprirlo finché non c'è un nuovo quiz
+  const prevQuizActiveRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (quiz.active && !prevQuizActiveRef.current) {
+      // attivato ora → mostra overlay e reset risposte locali
+      setQuizVisible(true);
+      setAnswerIndex(null);
+      setAnswerResult(null);
+    }
+    if (!quiz.active && prevQuizActiveRef.current) {
+      // disattivato ora → chiudi overlay
+      setQuizVisible(false);
+      setAnswerIndex(null);
+      setAnswerResult(null);
+    }
+    prevQuizActiveRef.current = quiz.active;
+  }, [quiz.active]);
+
   // Event handlers
   const handleUserPublished = async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
     await client?.subscribe(user, mediaType);
@@ -259,12 +335,116 @@ const VideoRoom: React.FC = () => {
       if (!isRecording) {
         await videoApi.startRecording(Number(lessonId));
         setIsRecording(true);
+        // Avvia appunti AI in background (non mostrare box)
+        try {
+          const data = await videoApi.startNotes(Number(lessonId));
+          setNotesActive(true);
+          if (data.lines) setNotesLines(data.lines);
+        } catch (_) {}
+        // Avvia trascrizione locale se disponibile
+        try {
+          const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+          if (SpeechRecognition) {
+            const rec = new SpeechRecognition();
+            rec.lang = 'it-IT';
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.onresult = (event: any) => {
+              let finalText = '';
+              for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) finalText += transcript.trim() + '\n';
+              }
+              if (finalText) setNotesLines(prev => [...prev, finalText].slice(-200));
+            };
+            rec.onerror = () => {};
+            rec.onend = () => setIsTranscribing(false);
+            recognitionRef.current = rec;
+            rec.start();
+            setIsTranscribing(true);
+          }
+        } catch (_) {}
       } else {
         await videoApi.stopRecording(Number(lessonId));
         setIsRecording(false);
+        // Ferma appunti AI e trascrizione, senza aprire il box automaticamente
+        try {
+          const data = await videoApi.stopNotes(Number(lessonId));
+          setNotesActive(false);
+          if (data.lines) setNotesLines(data.lines);
+        } catch (_) {}
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            recognitionRef.current = null;
+            setIsTranscribing(false);
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.error('Errore recording:', err);
+    }
+  };
+
+  // Quiz handlers
+  const launchSampleQuiz = async () => {
+    if (!lessonId) return;
+    try {
+      const data = await videoApi.launchQuiz(Number(lessonId), {
+        question: 'Quanto fa 7 × 8?',
+        options: ['52', '54', '56', '58'],
+        correct_index: 2
+      });
+      setQuiz(data);
+      setAnswerIndex(null);
+    } catch (e) {
+      console.error('Errore launch quiz', e);
+    }
+  };
+
+  const answerQuiz = async (idx: number) => {
+    if (!lessonId) return;
+    try {
+      const res = await videoApi.answerQuiz(Number(lessonId), { answer_index: idx });
+      setAnswerIndex(idx);
+      setAnswerResult(res.correct ?? null);
+    } catch (e) {
+      console.error('Errore answer quiz', e);
+    }
+  };
+
+  const closeQuiz = async () => {
+    if (!lessonId) return;
+    try {
+      const data = await videoApi.closeQuiz(Number(lessonId));
+      setQuiz(data);
+      // manteniamo answerIndex/answerResult per mostrare esito anche dopo reveal
+    } catch (e) {
+      console.error('Errore close quiz', e);
+    }
+  };
+
+  // Notes handlers (tutor)
+  const startNotes = async () => {
+    if (!lessonId) return;
+    try {
+      const data = await videoApi.startNotes(Number(lessonId));
+      setNotesHidden(false);
+      setShowNotes(true);
+      setNotesLines(data.lines);
+    } catch (e) {
+      console.error('Errore start notes', e);
+    }
+  };
+
+  const stopNotes = async () => {
+    if (!lessonId) return;
+    try {
+      const data = await videoApi.stopNotes(Number(lessonId));
+      setNotesLines(data.lines);
+      setShowNotes(false);
+    } catch (e) {
+      console.error('Errore stop notes', e);
     }
   };
 
@@ -344,9 +524,43 @@ const VideoRoom: React.FC = () => {
           <h1 className="text-xl font-bold">Video Lezione</h1>
           <p className="text-sm text-gray-300">Lezione #{lessonId}</p>
         </div>
-        <div className="text-white text-right">
-          <p className="text-sm">{timeRemaining}</p>
-          <p className="text-xs text-gray-400">Partecipanti: {remoteUsers.length + 1}</p>
+        <div className="flex items-center gap-3">
+          <>
+            <button
+              onClick={launchSampleQuiz}
+              className={"px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-sm"}
+            >
+              Lancia quiz
+            </button>
+            {notesActive ? (
+              <button
+                onClick={stopNotes}
+                className={"px-3 py-2 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 text-sm"}
+              >
+                Ferma appunti
+              </button>
+            ) : (
+              (notesLines.length > 0 ? (
+                <button
+                  onClick={() => { setNotesHidden(false); setShowNotes(true); }}
+                  className={"px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm"}
+                >
+                  Mostra appunti
+                </button>
+              ) : (
+                <button
+                  onClick={startNotes}
+                  className={"px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm"}
+                >
+                  Appunti lezione (AI)
+                </button>
+              ))
+            )}
+          </>
+          <div className="text-white text-right">
+            <p className="text-sm">{timeRemaining}</p>
+            <p className="text-xs text-gray-400">Partecipanti: {remoteUsers.length + 1}</p>
+          </div>
         </div>
       </div>
 
@@ -408,7 +622,7 @@ const VideoRoom: React.FC = () => {
 
         {/* Controls */}
         <div className="bg-gray-800 rounded-lg p-4">
-          <div className="flex justify-center space-x-4">
+          <div className="flex justify-center flex-wrap gap-4">
             {/* Video Toggle */}
             <button
               onClick={toggleVideo}
@@ -439,17 +653,15 @@ const VideoRoom: React.FC = () => {
               📺
             </button>
 
-            {/* Recording (solo tutor) */}
-            {user?.role === 'tutor' && (
-              <button
-                onClick={toggleRecording}
-                className={`p-3 rounded-full ${
-                  isRecording ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-600 text-white'
-                } hover:opacity-80 transition-opacity`}
-              >
-                🔴
-              </button>
-            )}
+            {/* Recording */}
+            <button
+              onClick={toggleRecording}
+              className={`p-3 rounded-full ${
+                isRecording ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-600 text-white'
+              } hover:opacity-80 transition-opacity`}
+            >
+              🔴
+            </button>
 
             {/* Leave Room */}
             <button
@@ -460,6 +672,91 @@ const VideoRoom: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Overlay Quiz */}
+        {quizVisible && quiz.active && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-30">
+            <div className="bg-gray-800 text-white p-6 rounded-2xl w-full max-w-xl shadow-2xl border border-white/10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-xl font-bold">Quiz</h3>
+                  {answerResult !== null && (
+                    <span className={answerResult ? 'text-emerald-400 text-2xl' : 'text-red-400 text-2xl'}>
+                      {answerResult ? '🙂' : '🙁'}
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => { setQuizVisible(false); }} className="text-gray-400 hover:text-white">✕</button>
+              </div>
+              <p className="text-lg font-semibold mb-4">{quiz.question}</p>
+              <div className="space-y-2">
+                {(quiz.options || []).map((opt, idx) => {
+                  const count = quiz.answers_count?.[idx] || 0;
+                  const selected = answerIndex === idx;
+                  const isCorrectSel = selected && answerResult === true;
+                  const isWrongSel = selected && answerResult === false;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => answerQuiz(idx)}
+                      disabled={answerIndex !== null}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                        isCorrectSel ? 'border-emerald-400 bg-emerald-500/10' : isWrongSel ? 'border-red-400 bg-red-500/10' : selected ? 'border-purple-400 bg-white/5' : 'border-white/10 hover:bg-white/5'
+                      } ${answerIndex !== null ? 'cursor-not-allowed opacity-90' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{String.fromCharCode(65 + idx)}. {opt}</span>
+                        <span className="text-xs text-white/60">{count}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {(quiz.reveal || answerResult !== null) && answerIndex !== null && (
+                <div className="mt-4">
+                  <div className="px-4 py-3 rounded-lg bg-black/30 border border-white/10">
+                    <div className="flex items-center gap-2">
+                      <span className={answerResult ? 'text-emerald-400' : 'text-red-400'}>
+                        {answerResult ? '✅ Risposta corretta!' : '❌ Risposta errata'}
+                      </span>
+                      {!quiz.reveal && (
+                        <span className="text-xs text-white/50">(risultato personale, il tutor può rivelare a tutti)</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Pannello Appunti (bottom dock) */}
+        {((showNotes || notesLines.length > 0) && !notesHidden) && (
+          <div className="fixed left-0 right-0 bottom-0 z-20">
+            <div className="mx-auto max-w-5xl m-4 p-4 rounded-2xl bg-gray-800/95 text-white border border-white/10 shadow-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <span>📝</span>
+                  <span className="font-semibold">Appunti lezione (AI)</span>
+                  {notesActive ? (
+                    <span className="text-xs text-emerald-400 animate-pulse">in ascolto…</span>
+                  ) : (
+                    <span className="text-xs text-white/50">in pausa</span>
+                  )}
+                </div>
+                <button onClick={() => setNotesHidden(true)} className="text-white/60 hover:text-white text-sm">Nascondi</button>
+              </div>
+              <div className="max-h-40 overflow-auto space-y-1 text-sm">
+                {notesLines.length === 0 && (
+                  <div className="text-white/50">In attesa di note…</div>
+                )}
+                {notesLines.map((l, i) => (
+                  <div key={i} className="whitespace-pre-wrap">{l}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { studentApi } from '../../api/student';
 
 interface Assignment {
   id: number;
@@ -24,20 +25,24 @@ const AssignmentsPage: React.FC = () => {
   const [submissionText, setSubmissionText] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const descRef = useRef<HTMLDivElement | null>(null);
+  const instrRef = useRef<HTMLDivElement | null>(null);
+  const solRef = useRef<HTMLDivElement | null>(null);
+  const prevRef = useRef<HTMLDivElement | null>(null);
+  const [showSolutions, setShowSolutions] = useState(false);
+  const [solutionSteps, setSolutionSteps] = useState<string[][]>([]);
+  const [stepsShown, setStepsShown] = useState<Record<number, number>>({});
+  const listRef = useRef<HTMLDivElement | null>(null);
+  // rimosso focus per placeholder dinamico; input semplice
+  const [hasChecked, setHasChecked] = useState<boolean>(false);
 
+  const location = useLocation();
   useEffect(() => {
-    // Carica i dati dal backend
     const loadData = async () => {
       try {
         setLoading(true);
-        
-        // TODO: Implementare chiamata API reale
-        // const assignmentsResponse = await studentApi.getAssignments();
-        // setAssignments(assignmentsResponse);
-        
-        // Per ora imposta tutto vuoto (nessun dato di test)
-        setAssignments([]);
-        
+        const data = await studentApi.getAssignments();
+        setAssignments(data as any);
       } catch (error) {
         console.error('Errore caricamento compiti:', error);
         setAssignments([]);
@@ -45,9 +50,181 @@ const AssignmentsPage: React.FC = () => {
         setLoading(false);
       }
     };
-    
     loadData();
   }, []);
+
+  useEffect(() => {
+    // Se arrivo con ?id= apri direttamente il compito
+    const params = new URLSearchParams(location.search);
+    const idParam = params.get('id');
+    if (idParam) {
+      const found = assignments.find(a => Number(a.id) === Number(idParam));
+      if (found) setSelectedAssignment(found);
+    }
+  }, [location.search, assignments]);
+
+  // --- Rendering elegante testo con LaTeX ---
+  const sanitize = (txt?: string) => {
+    if (!txt) return '';
+    return txt
+      .replace(/\*\*/g, '')
+      .replace(/^\s*#{1,6}\s*/gm, '')
+      .trim();
+  };
+
+  const autoWrapLatex = (line: string): string => {
+    if (line.includes('$') || line.includes('\\(')) return line;
+    const hasMath = /\\(infty|frac|sqrt|left|right|cup|cap|leq|geq|neq|pm|cdot|times|pi|approx|in)/.test(line) || /[\^_]/.test(line);
+    if (!hasMath) return line;
+    return `\\(${line}\\)`;
+  };
+
+  const toHtml = (text?: string) => {
+    if (!text) return '';
+    const safe = sanitize(text);
+    const lines = safe.split('\n');
+    const html = lines
+      .map(l => l.trim())
+      .map(l => (l.length === 0 ? '<br />' : `<p class=\"leading-relaxed\">${autoWrapLatex(l)}</p>`))
+      .join('');
+    return html;
+  };
+
+  // Estrae sezione Soluzioni dall'eventuale testo lungo in descrizione
+  const extractSections = (text?: string) => {
+    const safe = sanitize(text || '');
+    const lines = safe.split('\n');
+    const idxSol = lines.findIndex(l => /^\s*-{3,}\s*$/.test(l) || /^\s*soluzioni\s*:?/i.test(l));
+    let desc = safe;
+    let sols = '';
+    if (idxSol !== -1) {
+      desc = lines.slice(0, idxSol).join('\n');
+      const after = lines.slice(idxSol).join('\n');
+      const solHeaderIdx = after.search(/soluzioni\s*:?/i);
+      if (solHeaderIdx !== -1) {
+        const only = after.slice(solHeaderIdx + 'soluzioni'.length);
+        sols = only.trim();
+      } else {
+        sols = lines.slice(idxSol + 1).join('\n');
+      }
+    }
+    // Rimuovi eventuali duplicati di blocchi ricorrenti
+    desc = desc.replace(/Istruzioni:?[\s\S]*$/i, '').trim() || desc;
+    return { desc, sols };
+  };
+
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\\\(|\\\)/g, '')
+      .replace(/\s+/g, '')
+      .replace(/≥/g, '>=')
+      .replace(/≤/g, '<=')
+      .replace(/∞/g, 'infty')
+      .replace(/∪/g, 'cup')
+      .replace(/\{/g, '{')
+      .replace(/\}/g, '}')
+      .replace(/\[/g, '[')
+      .replace(/\]/g, ']');
+
+  const splitNumbered = (text: string) => {
+    const lines = text.split('\n');
+    const items: string[] = [];
+    let current = '';
+    for (const raw of lines) {
+      const l = raw.trim();
+      const m = l.match(/^(\d+)\s*[\.|\)]\s*(.*)$/);
+      if (m) {
+        if (current) items.push(current.trim());
+        current = m[2];
+      } else if (l.length > 0) {
+        current += (current ? ' ' : '') + l;
+      }
+    }
+    if (current) items.push(current.trim());
+    return items;
+  };
+
+  // Prepara quick answers quando si apre un compito
+  useEffect(() => {
+    if (!selectedAssignment) return;
+    const { sols } = extractSections(selectedAssignment.description);
+    const solsList = splitNumbered(sols).map(s => s.replace(/^[:\-\s]*/, ''));
+    const steps = solsList.map(item => item.split('\n').map(l => l.trim()).filter(Boolean));
+    setSolutionSteps(steps);
+    const initialShown: Record<number, number> = {};
+    for (let i = 0; i < steps.length; i++) initialShown[i] = 0;
+    setStepsShown(initialShown);
+    setHasChecked(false);
+    setShowSolutions(false);
+  }, [selectedAssignment]);
+
+  // nessun controllo automatico per risposte rapide: risposta libera unica
+
+  useEffect(() => {
+    try {
+      const w = window as any;
+      if (selectedAssignment && w.renderMathInElement) {
+        if (descRef.current) {
+          w.renderMathInElement(descRef.current, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\(', right: '\\)', display: false },
+              { left: '$', right: '$', display: false },
+            ],
+            throwOnError: false,
+          });
+        }
+        if (instrRef.current) {
+          w.renderMathInElement(instrRef.current, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\(', right: '\\)', display: false },
+              { left: '$', right: '$', display: false },
+            ],
+            throwOnError: false,
+          });
+        }
+        if (solRef.current) {
+          w.renderMathInElement(solRef.current, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\(', right: '\\)', display: false },
+              { left: '$', right: '$', display: false },
+            ],
+            throwOnError: false,
+          });
+        }
+        if (prevRef.current) {
+          w.renderMathInElement(prevRef.current, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\(', right: '\\)', display: false },
+              { left: '$', right: '$', display: false },
+            ],
+            throwOnError: false,
+          });
+        }
+      }
+    } catch (_) {}
+  }, [selectedAssignment, showSolutions, submissionText]);
+
+  // KaTeX anche nell'elenco dei compiti
+  useEffect(() => {
+    try {
+      const w = window as any;
+      if (w.renderMathInElement && listRef.current) {
+        w.renderMathInElement(listRef.current, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$', right: '$', display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+    } catch (_) {}
+  }, [assignments]);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -277,7 +454,7 @@ const AssignmentsPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6" ref={listRef}>
             {assignments.map((assignment) => (
             <div key={assignment.id} className="group bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:border-white/30 transition-all duration-300 hover:bg-white/15 shadow-xl">
               <div className="p-8">
@@ -299,9 +476,7 @@ const AssignmentsPage: React.FC = () => {
                       {assignment.title}
                     </h2>
                     
-                    <p className="text-white/70 mb-4 text-lg leading-relaxed">
-                      {assignment.description}
-                    </p>
+                    <div className="text-white/80 mb-4 text-lg leading-relaxed prose prose-invert max-w-none" ref={assignment.id === selectedAssignment?.id ? descRef : undefined} dangerouslySetInnerHTML={{ __html: toHtml(assignment.description) }} />
                     
                     <div className="flex items-center space-x-6 text-white/60 text-sm">
                       <span className="flex items-center space-x-2">
@@ -381,9 +556,18 @@ const AssignmentsPage: React.FC = () => {
           <div className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-8">
               <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-3xl font-bold text-white mb-2">{selectedAssignment.title}</h2>
-                  <p className="text-white/70 text-lg">{selectedAssignment.description}</p>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-3xl font-bold text-white mb-3">{selectedAssignment.title}</h2>
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">{selectedAssignment.subject}</span>
+                    <span className="px-3 py-1 text-xs rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">Scadenza: {formatDateTime(selectedAssignment.due_date)}</span>
+                    <span className="px-3 py-1 text-xs rounded-full bg-white/10 text-white/70 border border-white/20">{selectedAssignment.points} punti</span>
+                  </div>
+                  <div
+                    className="prose prose-invert max-w-none text-white/80 leading-relaxed"
+                    ref={descRef}
+                dangerouslySetInnerHTML={{ __html: toHtml(extractSections(selectedAssignment.description).desc) }}
+                  />
                 </div>
                 <button
                   onClick={() => setSelectedAssignment(null)}
@@ -397,19 +581,98 @@ const AssignmentsPage: React.FC = () => {
               
               <div className="bg-white/5 rounded-xl p-6 mb-6">
                 <h3 className="text-xl font-semibold text-white mb-4">Istruzioni Dettagliate</h3>
-                <div className="text-white/80 leading-relaxed whitespace-pre-line">
-                  {selectedAssignment.instructions}
-                </div>
+                <div className="text-white/80 leading-relaxed" ref={instrRef} dangerouslySetInnerHTML={{ __html: toHtml(selectedAssignment.instructions) }} />
               </div>
+
+              {/* Risposta unica e correzione passo-passo */}
+              {(() => {
+                const sols = extractSections(selectedAssignment.description).sols;
+                const items = splitNumbered(sols);
+                if (items.length === 0) return null as any;
+                return (
+                  <div className="bg-white/5 rounded-xl p-6 mb-6">
+                    <h3 className="text-xl font-semibold text-white mb-4">Risposta dello studente</h3>
+                    <p className="text-white/70 text-sm mb-4">Scrivi la tua risposta in modo naturale (non serve LaTeX). Dopo la conferma vedrai le soluzioni, passo per passo.</p>
+                    <textarea
+                      value={submissionText}
+                      onChange={(e) => setSubmissionText(e.target.value)}
+                      placeholder="Scrivi qui la tua risposta..."
+                      className="w-full min-h-[160px] px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-y"
+                    />
+                    <div className="flex justify-end mt-4">
+                      <button
+                        onClick={() => {
+                          // conferma: abilita soluzioni e mostra primo step per ciascun esercizio
+                          const solsSteps = items.map(item => item.split('\n').map(l=>l.trim()).filter(Boolean));
+                          setSolutionSteps(solsSteps);
+                          const init: Record<number, number> = {};
+                          for (let i=0;i<solsSteps.length;i++) init[i] = Math.min(1, solsSteps[i].length);
+                          setStepsShown(init);
+                          setHasChecked(true);
+                          setShowSolutions(true);
+                        }}
+                        disabled={!submissionText.trim()}
+                        className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-6 py-2 rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Conferma e mostra correzione
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Soluzioni passo-passo */}
+              {hasChecked && showSolutions && (
+                <div className="bg-white/5 rounded-xl p-6 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-white">Soluzioni passo-passo</h3>
+                    <button onClick={()=>setShowSolutions(false)} className="text-sm text-blue-300 hover:text-blue-200">Nascondi</button>
+                  </div>
+                  <div className="space-y-6">
+                    {solutionSteps.map((steps, i) => (
+                      <div key={i} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-white font-semibold">Esercizio {i+1}</h4>
+                          <div className="space-x-2">
+                            <button
+                              onClick={()=> setStepsShown(prev=>({ ...prev, [i]: Math.max(0, (prev[i]||0)-1) }))}
+                              disabled={(stepsShown[i]||0) <= 0}
+                              className="px-3 py-1 text-sm border border-white/20 rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-40"
+                            >
+                              - Passo
+                            </button>
+                            <button
+                              onClick={()=> setStepsShown(prev=>({ ...prev, [i]: Math.min(steps.length, (prev[i]||0)+1) }))}
+                              disabled={(stepsShown[i]||0) >= steps.length}
+                              className="px-3 py-1 text-sm border border-white/20 rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-40"
+                            >
+                              + Passo
+                            </button>
+                          </div>
+                        </div>
+                        <div ref={solRef} className="prose prose-invert max-w-none">
+                          {steps.slice(0, stepsShown[i]||0).map((line, idx) => (
+                            <p key={idx} dangerouslySetInnerHTML={{ __html: toHtml(line) }} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {!selectedAssignment.has_submission && selectedAssignment.is_published && (
                 <div className="bg-white/5 rounded-xl p-6">
                   <h3 className="text-xl font-semibold text-white mb-4">Consegna Compito</h3>
+                  <div className="bg-white/5 rounded-lg p-3 border border-white/10 mb-4">
+                    <h4 className="text-white/80 text-sm mb-2">Anteprima risposta</h4>
+                    <div ref={prevRef} className="min-h-[120px] text-white/90 prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: toHtml(submissionText) }} />
+                  </div>
                   <textarea
                     value={submissionText}
                     onChange={(e) => setSubmissionText(e.target.value)}
-                    placeholder="Inserisci qui la tua risposta al compito..."
-                    className="w-full h-64 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-none"
+                    placeholder={'Scrivi qui la tua risposta (in testo normale)'}
+                    className="w-full min-h-[160px] px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-y"
                   />
                   <div className="flex justify-end space-x-4 mt-6">
                     <button

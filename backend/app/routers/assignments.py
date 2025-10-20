@@ -9,8 +9,9 @@ from app.services.assignments import AssignmentService
 from app.schemas.assignment import (
     AssignmentCreate, AssignmentUpdate, AssignmentResponse, AssignmentListResponse,
     AssignmentSubmissionCreate, AssignmentSubmissionUpdate, AssignmentSubmissionResponse,
-    AssignmentGrading
+    AssignmentGrading, AssignmentGenerateRequest, AssignmentDraftResponse
 )
+from app.services.ai import generate_assignment_with_openai
 
 router = APIRouter()
 
@@ -24,10 +25,20 @@ def create_assignment(
     assignment_service = AssignmentService(db)
     assignment = assignment_service.create_assignment(assignment_data, current_user.id)
     
-    # Ottieni i nomi per la risposta
+    # Ottieni i nomi per la risposta (dai profili)
     tutor = db.query(User).filter(User.id == assignment.tutor_id).first()
     student = db.query(User).filter(User.id == assignment.student_id).first()
-    
+    tutor_name = "Tutor"
+    student_name = "Studente"
+    if tutor and tutor.tutor_profile:
+        tutor_name = f"{tutor.tutor_profile.first_name} {tutor.tutor_profile.last_name}".strip()
+    elif tutor:
+        tutor_name = tutor.email
+    if student and student.student_profile:
+        student_name = f"{student.student_profile.first_name} {student.student_profile.last_name}".strip()
+    elif student:
+        student_name = student.email
+
     return AssignmentResponse(
         id=assignment.id,
         title=assignment.title,
@@ -39,12 +50,26 @@ def create_assignment(
         is_published=assignment.is_published,
         created_at=assignment.created_at,
         updated_at=assignment.updated_at,
-        tutor_name=f"{tutor.first_name} {tutor.last_name}" if tutor else "Tutor",
-        student_name=f"{student.first_name} {student.last_name}" if student else "Studente",
+        tutor_name=tutor_name,
+        student_name=student_name,
         has_submission=False,
         submission_status=None,
         submission_grade=None
     )
+
+
+@router.post("/generate", response_model=AssignmentDraftResponse)
+def generate_assignment(
+    payload: AssignmentGenerateRequest,
+    current_user: User = Depends(require_role(Role.tutor))
+):
+    """Genera una bozza di compito con AI dato argomento e difficoltà."""
+    draft = generate_assignment_with_openai(
+        topic=payload.topic,
+        difficulty=payload.difficulty,
+        subject=payload.subject,
+    )
+    return AssignmentDraftResponse(**draft)
 
 @router.get("/student", response_model=List[AssignmentResponse])
 def get_student_assignments(
@@ -58,13 +83,20 @@ def get_student_assignments(
     
     result = []
     for assignment in assignments:
-        # Verifica se esiste una consegna
         submission = assignment_service.get_submission(assignment.id, current_user.id)
-        
-        # Ottieni i nomi
         tutor = db.query(User).filter(User.id == assignment.tutor_id).first()
         student = db.query(User).filter(User.id == assignment.student_id).first()
-        
+        tutor_name = "Tutor"
+        student_name = "Studente"
+        if tutor and tutor.tutor_profile:
+            tutor_name = f"{tutor.tutor_profile.first_name} {tutor.tutor_profile.last_name}".strip()
+        elif tutor:
+            tutor_name = tutor.email
+        if student and student.student_profile:
+            student_name = f"{student.student_profile.first_name} {student.student_profile.last_name}".strip()
+        elif student:
+            student_name = student.email
+
         result.append(AssignmentResponse(
             id=assignment.id,
             title=assignment.title,
@@ -76,8 +108,8 @@ def get_student_assignments(
             is_published=assignment.is_published,
             created_at=assignment.created_at,
             updated_at=assignment.updated_at,
-            tutor_name=f"{tutor.first_name} {tutor.last_name}" if tutor else "Tutor",
-            student_name=f"{student.first_name} {student.last_name}" if student else "Studente",
+            tutor_name=tutor_name,
+            student_name=student_name,
             has_submission=submission is not None,
             submission_status=submission.status if submission else None,
             submission_grade=submission.grade if submission else None
@@ -96,13 +128,20 @@ def get_tutor_assignments(
     
     result = []
     for assignment in assignments:
-        # Verifica se esiste una consegna
         submission = assignment_service.get_submission(assignment.id, assignment.student_id)
-        
-        # Ottieni i nomi
         tutor = db.query(User).filter(User.id == assignment.tutor_id).first()
         student = db.query(User).filter(User.id == assignment.student_id).first()
-        
+        tutor_name = "Tutor"
+        student_name = "Studente"
+        if tutor and tutor.tutor_profile:
+            tutor_name = f"{tutor.tutor_profile.first_name} {tutor.tutor_profile.last_name}".strip()
+        elif tutor:
+            tutor_name = tutor.email
+        if student and student.student_profile:
+            student_name = f"{student.student_profile.first_name} {student.student_profile.last_name}".strip()
+        elif student:
+            student_name = student.email
+
         result.append(AssignmentResponse(
             id=assignment.id,
             title=assignment.title,
@@ -114,8 +153,8 @@ def get_tutor_assignments(
             is_published=assignment.is_published,
             created_at=assignment.created_at,
             updated_at=assignment.updated_at,
-            tutor_name=f"{tutor.first_name} {tutor.last_name}" if tutor else "Tutor",
-            student_name=f"{student.first_name} {student.last_name}" if student else "Studente",
+            tutor_name=tutor_name,
+            student_name=student_name,
             has_submission=submission is not None,
             submission_status=submission.status if submission else None,
             submission_grade=submission.grade if submission else None
@@ -144,10 +183,19 @@ def get_assignment(
     if current_user.role == Role.student:
         submission = assignment_service.get_submission(assignment.id, current_user.id)
     
-    # Ottieni i nomi
     tutor = db.query(User).filter(User.id == assignment.tutor_id).first()
     student = db.query(User).filter(User.id == assignment.student_id).first()
-    
+    tutor_name = "Tutor"
+    student_name = "Studente"
+    if tutor and tutor.tutor_profile:
+        tutor_name = f"{tutor.tutor_profile.first_name} {tutor.tutor_profile.last_name}".strip()
+    elif tutor:
+        tutor_name = tutor.email
+    if student and student.student_profile:
+        student_name = f"{student.student_profile.first_name} {student.student_profile.last_name}".strip()
+    elif student:
+        student_name = student.email
+
     return AssignmentResponse(
         id=assignment.id,
         title=assignment.title,
@@ -159,8 +207,8 @@ def get_assignment(
         is_published=assignment.is_published,
         created_at=assignment.created_at,
         updated_at=assignment.updated_at,
-        tutor_name=f"{tutor.first_name} {tutor.last_name}" if tutor else "Tutor",
-        student_name=f"{student.first_name} {student.last_name}" if student else "Studente",
+        tutor_name=tutor_name,
+        student_name=student_name,
         has_submission=submission is not None,
         submission_status=submission.status if submission else None,
         submission_grade=submission.grade if submission else None
