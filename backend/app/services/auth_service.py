@@ -12,9 +12,9 @@ from app.core.config import settings
 from app.models.user import User, Role, StudentProfile, TutorProfile, ParentProfile
 from app.schemas.auth import UserRegister, UserLogin, Token, UserProfile
 
-# Password hashing
+# Password hashing - Usa bcrypt normale, il pre-hash lo facciamo manualmente
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256"],
+    schemes=["bcrypt"],
     deprecated="auto",
 )
 
@@ -23,18 +23,11 @@ class AuthService:
         self.db = db
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Verifica password con fallback: plain -> bcrypt_sha256; se fallisce, usa prehash SHA-256 base64url."""
+        """Verifica password usando lo stesso pre-hash SHA-256 usato per la creazione."""
         try:
-            if pwd_context.verify(plain_password, hashed_password):
-                return True
-        except PasswordSizeError:
-            # In caso di vecchi container che usano bcrypt puro
-            pass
-
-        # Fallback: pre-hash lato server e verifica
-        digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
-        b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-        try:
+            # Pre-hash della password esattamente come in get_password_hash
+            digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
+            b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
             return pwd_context.verify(b64, hashed_password)
         except Exception:
             return False
@@ -43,8 +36,11 @@ class AuthService:
         """Genera hash robusto: sempre pre-hash SHA-256 base64url prima di passare a passlib.
         In questo modo la stringa è corta (<72B) e compatibile con qualsiasi backend bcrypt.
         """
+        # Pre-hash con SHA-256 per ridurre la lunghezza a 43 caratteri (ben sotto 72 bytes)
         digest = hashlib.sha256(password.encode("utf-8")).digest()
         b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        # b64 è sempre 43 caratteri, quindi passa sempre il check bcrypt
+        print(f"DEBUG: password originale length: {len(password)}, pre-hash length: {len(b64)}")
         return pwd_context.hash(b64)
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -69,15 +65,8 @@ class AuthService:
                 detail="Email già registrata"
             )
         
-        # Crea l'utente (gestione robusta limite bcrypt 72 byte)
-        try:
-            hashed_password = self.get_password_hash(user_data.password)
-        except PasswordSizeError:
-            # Non dovrebbe più accadere con bcrypt_sha256, ma per sicurezza
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password non valida")
-        except Exception:
-            # Lasciamo propagare per ottenere un 500 con messaggio reale nei log
-            raise
+        # Crea l'utente con password hashata usando SHA-256 + bcrypt
+        hashed_password = self.get_password_hash(user_data.password)
         user = User(
             email=user_data.email,
             hashed_password=hashed_password,

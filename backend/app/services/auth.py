@@ -9,19 +9,29 @@ from app.core.config import settings
 from app.models.user import User, Role, StudentProfile, TutorProfile, ParentProfile
 from app.schemas.auth import UserRegister, UserLogin, TokenData
 
-# Password hashing
+# Password hashing - Usa bcrypt con pre-hash manuale SHA-256
+import hashlib
+import base64
+
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256", "bcrypt"],
-    deprecated=["bcrypt"],
+    schemes=["bcrypt"],
+    deprecated="auto",
 )
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifica se la password è corretta"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verifica password con pre-hash SHA-256"""
+    try:
+        digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
+        b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        return pwd_context.verify(b64, hashed_password)
+    except Exception:
+        return False
 
 def get_password_hash(password: str) -> str:
-    """Genera hash con bcrypt_sha256, evitando il limite dei 72 byte."""
-    return pwd_context.hash(password)
+    """Genera hash con pre-hash SHA-256 (sempre < 72 bytes)"""
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return pwd_context.hash(b64)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Crea un JWT token"""

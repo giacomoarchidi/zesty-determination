@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Union
+import hashlib
+import base64
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, status, Depends
@@ -9,9 +11,9 @@ from app.core.config import settings
 from app.core.db import get_db
 from app.models.user import User, Role
 
-# Password hashing: usa solo bcrypt_sha256 (niente limite 72 byte)
+# Password hashing - Usa bcrypt con pre-hash manuale SHA-256
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256"],
+    schemes=["bcrypt"],
     deprecated="auto",
 )
 
@@ -20,13 +22,20 @@ security = HTTPBearer()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verifica password con pre-hash SHA-256"""
+    try:
+        digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
+        b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        return pwd_context.verify(b64, hashed_password)
+    except Exception:
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    """Hash con bcrypt_sha256 (no limite 72 byte)."""
-    return pwd_context.hash(password)
+    """Genera hash con pre-hash SHA-256 (sempre < 72 bytes)"""
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return pwd_context.hash(b64)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
