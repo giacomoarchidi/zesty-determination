@@ -20,11 +20,22 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copia requirements e installa dipendenze
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copia il codice dell'applicazione
-COPY . /app
+COPY . .
+
+# Rendi eseguibile lo script di avvio
+RUN chmod +x start.sh
+
+# Esponi la porta (Railway usa la variabile $PORT)
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/api/health || exit 1
 
 # Comando di default
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001}"]
+CMD ["./start.sh"]
