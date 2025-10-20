@@ -39,8 +39,6 @@ class AuthService:
         # Pre-hash con SHA-256 per ridurre la lunghezza a 43 caratteri (ben sotto 72 bytes)
         digest = hashlib.sha256(password.encode("utf-8")).digest()
         b64 = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-        # b64 è sempre 43 caratteri, quindi passa sempre il check bcrypt
-        print(f"DEBUG: password originale length: {len(password)}, pre-hash length: {len(b64)}")
         return pwd_context.hash(b64)
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
