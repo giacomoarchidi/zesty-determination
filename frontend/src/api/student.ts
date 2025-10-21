@@ -32,8 +32,18 @@ export interface StudentAssignment {
 export const studentApi = {
   // Ottieni le lezioni dello studente
   getLessons: async (page: number = 1, size: number = 20): Promise<StudentLessonsResponse> => {
-    const response = await apiClient.get(`/lessons/?page=${page}&size=${size}`);
-    return response.data;
+    console.log('🔵 [StudentAPI] Chiamata getLessons con page=', page, 'size=', size);
+    console.log('🔵 [StudentAPI] URL completo:', `/lessons/?page=${page}&size=${size}`);
+    try {
+      const response = await apiClient.get(`/lessons/?page=${page}&size=${size}`);
+      console.log('✅ [StudentAPI] Risposta ricevuta:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [StudentAPI] Errore nella chiamata:', error);
+      console.error('❌ [StudentAPI] Status:', error.response?.status);
+      console.error('❌ [StudentAPI] Data:', error.response?.data);
+      throw error;
+    }
   },
 
   // Ottieni i compiti dello studente (recenti)
