@@ -41,7 +41,7 @@ const fixLatexDelimiters = (text: string): string => {
 const VideoRoom: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, loadProfile } = useAuthStore();
   
   // Agora states
   const [client, setClient] = useState<IAgoraRTCClient | null>(null);
@@ -134,6 +134,14 @@ const VideoRoom: React.FC = () => {
   const [currentSpeaker, setCurrentSpeaker] = useState<'tutor' | 'student'>('tutor'); // Chi sta parlando
   const [localVolume, setLocalVolume] = useState<number>(0); // Volume audio locale (tutor)
   const [remoteVolume, setRemoteVolume] = useState<number>(0); // Volume audio remoto (studente)
+  
+  // Forza il caricamento del profilo utente se non è presente
+  useEffect(() => {
+    if (!user) {
+      console.log('⚠️ User non presente, carico profilo...');
+      loadProfile();
+    }
+  }, []);
   
   // Debug log all'avvio
   useEffect(() => {
@@ -749,6 +757,18 @@ const VideoRoom: React.FC = () => {
     }
   };
 
+  // Aspetta che user sia caricato
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-white text-lg">Caricamento profilo utente...</p>
+        </div>
+      </div>
+    );
+  }
+  
   // Loading state
   if (isLoading) {
     return (
