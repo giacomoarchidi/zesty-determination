@@ -27,28 +27,28 @@ async def delete_all_users(
         # Conta utenti prima della cancellazione
         user_count = db.query(User).count()
         
-        # Cancella prima le tabelle correlate per evitare foreign key constraints
-        from app.models.student_profile import StudentProfile
-        from app.models.tutor_profile import TutorProfile
-        from app.models.parent_profile import ParentProfile
-        from app.models.lesson import Lesson
-        from app.models.assignment import Assignment
-        from app.models.feedback import Feedback
-        from app.models.payment import Payment
-        from app.models.report import Report
+        # Usa SQL raw per cancellare tutto in ordine corretto
+        # Disabilita temporaneamente i foreign key checks
+        db.execute("SET session_replication_role = replica;")
         
-        # Cancella in ordine per rispettare le foreign key
-        db.query(StudentProfile).delete()
-        db.query(TutorProfile).delete()
-        db.query(ParentProfile).delete()
-        db.query(Lesson).delete()
-        db.query(Assignment).delete()
-        db.query(Feedback).delete()
-        db.query(Payment).delete()
-        db.query(Report).delete()
+        # Cancella tutte le tabelle correlate
+        db.execute("DELETE FROM student_profiles;")
+        db.execute("DELETE FROM tutor_profiles;")
+        db.execute("DELETE FROM parent_profiles;")
+        db.execute("DELETE FROM lessons;")
+        db.execute("DELETE FROM assignments;")
+        db.execute("DELETE FROM feedback;")
+        db.execute("DELETE FROM payments;")
+        db.execute("DELETE FROM reports;")
+        db.execute("DELETE FROM files;")
+        db.execute("DELETE FROM availability;")
         
         # Ora cancella tutti gli utenti
-        db.query(User).delete()
+        db.execute("DELETE FROM users;")
+        
+        # Riabilita i foreign key checks
+        db.execute("SET session_replication_role = DEFAULT;")
+        
         db.commit()
         
         return {
