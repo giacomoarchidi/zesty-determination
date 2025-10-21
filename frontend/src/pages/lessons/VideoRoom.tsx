@@ -8,6 +8,7 @@ import AgoraRTC, {
 } from 'agora-rtc-sdk-ng';
 import { videoApi, type JoinRoomResponse, type QuizState } from '../../api/video';
 import { useAuthStore } from '../../store/authStore';
+import apiClient from '../../api/client';
 
 const VideoRoom: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
