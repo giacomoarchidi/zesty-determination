@@ -36,6 +36,14 @@ const VideoRoom: React.FC = () => {
   const [notesLines, setNotesLines] = useState<string[]>([]);
   const [notesHidden, setNotesHidden] = useState<boolean>(true);
   const [notesActive, setNotesActive] = useState<boolean>(false);
+  // Salva il ruolo in un campo separato quando il componente si monta
+  useEffect(() => {
+    if (user?.role) {
+      localStorage.setItem('current_user_role', user.role);
+      console.log('💾 Ruolo salvato in localStorage:', user.role);
+    }
+  }, [user]);
+  
   // Funzione per controllare dinamicamente se è tutor
   const checkIsTutor = () => {
     // Prova prima dallo store
@@ -46,21 +54,34 @@ const VideoRoom: React.FC = () => {
       return isTutorRole;
     }
     
-    // Fallback: prova dal localStorage
+    // Fallback 1: prova dal localStorage Zustand persist
     const storedUser = localStorage.getItem('auth-storage');
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
         const userRole = parsed?.state?.user?.role || parsed?.user?.role;
-        const isTutorRole = (userRole || '').toLowerCase() === 'tutor';
-        console.log('🔍 Check isTutor (da localStorage):', { userRole, isTutorRole });
-        return isTutorRole;
+        if (userRole) {
+          const isTutorRole = userRole.toLowerCase() === 'tutor';
+          console.log('🔍 Check isTutor (da localStorage Zustand):', { userRole, isTutorRole });
+          return isTutorRole;
+        }
       } catch (e) {
-        console.error('❌ Errore parsing localStorage:', e);
+        console.error('❌ Errore parsing localStorage Zustand:', e);
       }
     }
     
-    console.log('❌ Impossibile determinare ruolo utente');
+    // Fallback 2: prova dal campo separato
+    const savedRole = localStorage.getItem('current_user_role');
+    if (savedRole) {
+      const isTutorRole = savedRole.toLowerCase() === 'tutor';
+      console.log('🔍 Check isTutor (da current_user_role):', { savedRole, isTutorRole });
+      return isTutorRole;
+    }
+    
+    console.log('❌ Impossibile determinare ruolo utente - tutti i fallback falliti');
+    console.log('   Store:', useAuthStore.getState().user);
+    console.log('   LocalStorage auth-storage:', localStorage.getItem('auth-storage'));
+    console.log('   LocalStorage current_user_role:', localStorage.getItem('current_user_role'));
     return false;
   };
   
@@ -1041,3 +1062,4 @@ const VideoRoom: React.FC = () => {
 };
 
 export default VideoRoom;
+
