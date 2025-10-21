@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { studentApi } from '../../api/student';
 import { useAuthStore } from '../../store/authStore';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 interface Lesson {
   id: number;
@@ -30,6 +35,7 @@ const StudentDashboard: React.FC = () => {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const assignmentsRef = useRef<HTMLDivElement | null>(null);
   const user = useAuthStore((s) => s.user);
+  const [selectedNotes, setSelectedNotes] = useState<{lesson: Lesson, notes: string} | null>(null);
   const greetingName = (() => {
     if (!user) return 'Utente';
     const email = user.email?.toLowerCase() || '';
@@ -455,7 +461,10 @@ const StudentDashboard: React.FC = () => {
                       <p className="text-white/70 text-sm line-clamp-2">
                         {lesson.notes_text?.substring(0, 150)}...
                       </p>
-                      <button className="mt-3 text-green-400 text-sm hover:text-green-300 transition-colors flex items-center gap-1">
+                      <button 
+                        onClick={() => setSelectedNotes({lesson, notes: lesson.notes_text || ''})}
+                        className="mt-3 text-green-400 text-sm hover:text-green-300 transition-colors flex items-center gap-1"
+                      >
                         <span>Leggi appunti</span>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -493,6 +502,57 @@ const StudentDashboard: React.FC = () => {
             </div>
         </div>
       </div>
+
+      {/* Modale Appunti */}
+      {selectedNotes && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-blue-900/90 to-purple-900/90 backdrop-blur-xl rounded-3xl border-2 border-blue-400/30 p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                  <span>📚</span>
+                  <span>Appunti: {selectedNotes.lesson.subject}</span>
+                </h3>
+                <p className="text-white/70">
+                  Lezione con {selectedNotes.lesson.tutor_name} • {new Date(selectedNotes.lesson.start_at).toLocaleDateString('it-IT')}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedNotes(null)}
+                className="text-white/60 hover:text-white transition-colors"
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 prose prose-slate prose-headings:text-gray-900 prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-li:text-gray-700 max-w-none">
+              <style>{`
+                .katex { color: #1a1a1a !important; }
+                .katex * { color: #1a1a1a !important; }
+                .katex-display { margin: 1.5rem 0 !important; }
+                .katex-display .katex { font-size: 1.2rem !important; }
+              `}</style>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {selectedNotes.notes}
+              </ReactMarkdown>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedNotes(null)}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-3 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </main>
     </div>
   );
