@@ -9,6 +9,10 @@ import AgoraRTC, {
 import { videoApi, type JoinRoomResponse, type QuizState } from '../../api/video';
 import { useAuthStore } from '../../store/authStore';
 import apiClient from '../../api/client';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const VideoRoom: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
@@ -101,6 +105,7 @@ const VideoRoom: React.FC = () => {
   const [generatedNotes, setGeneratedNotes] = useState<string>('');
   const [isGeneratingNotes, setIsGeneratingNotes] = useState<boolean>(false);
   const [notesEditable, setNotesEditable] = useState<string>('');
+  const [notesViewMode, setNotesViewMode] = useState<'preview' | 'edit'>('preview'); // Toggle per visualizzazione appunti
   const recognitionRef = useRef<any>(null);
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [interimText, setInterimText] = useState<string>('');
@@ -1003,21 +1008,65 @@ const VideoRoom: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Editor Appunti */}
+                  {/* Toggle View Mode */}
+                  <div className="flex justify-center mb-4">
+                    <div className="inline-flex rounded-lg bg-black/30 p-1">
+                      <button
+                        onClick={() => setNotesViewMode('preview')}
+                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                          notesViewMode === 'preview'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-transparent text-white/60 hover:text-white'
+                        }`}
+                      >
+                        👁️ Anteprima
+                      </button>
+                      <button
+                        onClick={() => setNotesViewMode('edit')}
+                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                          notesViewMode === 'edit'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-transparent text-white/60 hover:text-white'
+                        }`}
+                      >
+                        ✏️ Modifica
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Editor/Preview Appunti */}
                   <div className="mb-6">
-                    <label className="block text-white font-semibold mb-3 text-lg">
-                      ✏️ Appunti Generati (modifica se necessario)
-                    </label>
-                    <textarea
-                      value={notesEditable}
-                      onChange={(e) => setNotesEditable(e.target.value)}
-                      className="w-full min-h-[400px] px-4 py-3 bg-gray-900/50 border-2 border-blue-400/30 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 transition-all duration-300 resize-y font-mono text-sm leading-relaxed"
-                      placeholder="Gli appunti generati appariranno qui..."
-                    />
-                    <p className="text-white/50 text-xs mt-2">
-                      📝 Lunghezza: {notesEditable.length} caratteri | 
-                      Puoi usare LaTeX tra \( \) per formule matematiche
-                    </p>
+                    {notesViewMode === 'preview' ? (
+                      <>
+                        <label className="block text-white font-semibold mb-3 text-lg">
+                          👁️ Anteprima Appunti
+                        </label>
+                        <div className="w-full min-h-[400px] max-h-[600px] overflow-y-auto px-6 py-5 bg-white rounded-xl border-2 border-blue-400/30 prose prose-slate prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-li:text-gray-700 max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkMath]}
+                            rehypePlugins={[rehypeKatex]}
+                          >
+                            {notesEditable}
+                          </ReactMarkdown>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <label className="block text-white font-semibold mb-3 text-lg">
+                          ✏️ Modifica Appunti
+                        </label>
+                        <textarea
+                          value={notesEditable}
+                          onChange={(e) => setNotesEditable(e.target.value)}
+                          className="w-full min-h-[400px] px-4 py-3 bg-gray-900/50 border-2 border-blue-400/30 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 transition-all duration-300 resize-y font-mono text-sm leading-relaxed"
+                          placeholder="Gli appunti generati appariranno qui..."
+                        />
+                        <p className="text-white/50 text-xs mt-2">
+                          📝 Lunghezza: {notesEditable.length} caratteri | 
+                          Puoi usare LaTeX tra \( \) per formule matematiche inline e $$ $$ per blocchi
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   {/* Buttons */}
