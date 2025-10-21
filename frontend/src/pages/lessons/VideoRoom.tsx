@@ -38,10 +38,30 @@ const VideoRoom: React.FC = () => {
   const [notesActive, setNotesActive] = useState<boolean>(false);
   // Funzione per controllare dinamicamente se è tutor
   const checkIsTutor = () => {
+    // Prova prima dallo store
     const currentUser = useAuthStore.getState().user;
-    const isTutorRole = (currentUser?.role || '').toLowerCase() === 'tutor';
-    console.log('🔍 Check isTutor:', { currentUser, role: currentUser?.role, isTutorRole });
-    return isTutorRole;
+    if (currentUser?.role) {
+      const isTutorRole = currentUser.role.toLowerCase() === 'tutor';
+      console.log('🔍 Check isTutor (da store):', { currentUser, role: currentUser.role, isTutorRole });
+      return isTutorRole;
+    }
+    
+    // Fallback: prova dal localStorage
+    const storedUser = localStorage.getItem('auth-storage');
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        const userRole = parsed?.state?.user?.role || parsed?.user?.role;
+        const isTutorRole = (userRole || '').toLowerCase() === 'tutor';
+        console.log('🔍 Check isTutor (da localStorage):', { userRole, isTutorRole });
+        return isTutorRole;
+      } catch (e) {
+        console.error('❌ Errore parsing localStorage:', e);
+      }
+    }
+    
+    console.log('❌ Impossibile determinare ruolo utente');
+    return false;
   };
   
   const isTutor = (user?.role || '').toLowerCase() === 'tutor';
