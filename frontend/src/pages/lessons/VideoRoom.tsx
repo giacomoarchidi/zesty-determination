@@ -589,29 +589,31 @@ const VideoRoom: React.FC = () => {
             >
               Lancia quiz
             </button>
-            {notesActive ? (
+            {fullTranscript.length > 0 || notesLines.length > 0 ? (
               <button
-                onClick={stopNotes}
-                className={"px-3 py-2 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 text-sm"}
+                onClick={() => { 
+                  setNotesHidden(false); 
+                  setShowNotes(true); 
+                }}
+                className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm flex items-center gap-2"
               >
-                Ferma appunti
+                <span>📝</span>
+                <span>Mostra Trascrizione</span>
+                <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                  {fullTranscript.length}
+                </span>
               </button>
             ) : (
-              (notesLines.length > 0 ? (
-                <button
-                  onClick={() => { setNotesHidden(false); setShowNotes(true); }}
-                  className={"px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm"}
-                >
-                  Mostra appunti
-                </button>
-              ) : (
-                <button
-                  onClick={startNotes}
-                  className={"px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm"}
-                >
-                  Appunti lezione (AI)
-                </button>
-              ))
+              <button
+                onClick={() => { 
+                  setNotesHidden(false); 
+                  setShowNotes(true); 
+                }}
+                className="px-3 py-2 rounded-lg bg-gray-600 text-white/60 hover:bg-gray-500 text-sm"
+                disabled
+              >
+                📝 Nessuna trascrizione
+              </button>
             )}
           </>
           <div className="text-white text-right">
@@ -808,28 +810,32 @@ const VideoRoom: React.FC = () => {
         )}
 
         {/* Pannello Appunti (bottom dock) */}
-        {((showNotes || notesLines.length > 0) && !notesHidden) && (
+        {((showNotes || notesLines.length > 0 || fullTranscript.length > 0) && !notesHidden) && (
           <div className="fixed left-0 right-0 bottom-0 z-20">
             <div className="mx-auto max-w-5xl m-4 p-4 rounded-2xl bg-gray-800/95 text-white border border-white/10 shadow-2xl">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2 text-emerald-300">
                   <span>📝</span>
-                  <span className="font-semibold">Appunti lezione (AI)</span>
-                  {notesActive ? (
-                    <span className="text-xs text-emerald-400 animate-pulse">in ascolto…</span>
+                  <span className="font-semibold">Trascrizione Completa</span>
+                  {isRecording && isTranscribing ? (
+                    <span className="text-xs text-emerald-400 animate-pulse">🎙️ registrando…</span>
+                  ) : fullTranscript.length > 0 ? (
+                    <span className="text-xs text-white/50">✅ {fullTranscript.length} caratteri salvati</span>
                   ) : (
-                    <span className="text-xs text-white/50">in pausa</span>
+                    <span className="text-xs text-white/50">in attesa...</span>
                   )}
                 </div>
                 <button onClick={() => setNotesHidden(true)} className="text-white/60 hover:text-white text-sm">Nascondi</button>
               </div>
-              <div className="max-h-40 overflow-auto space-y-1 text-sm">
-                {notesLines.length === 0 && (
-                  <div className="text-white/50">In attesa di note…</div>
+              <div className="max-h-60 overflow-auto space-y-1 text-sm bg-gray-900/50 rounded-lg p-3">
+                {fullTranscript.length === 0 && notesLines.length === 0 && (
+                  <div className="text-white/50">In attesa di trascrizione… Clicca 🔴 per iniziare a registrare.</div>
                 )}
-                {notesLines.map((l, i) => (
-                  <div key={i} className="whitespace-pre-wrap">{l}</div>
-                ))}
+                {fullTranscript && (
+                  <div className="whitespace-pre-wrap text-white/90 leading-relaxed">
+                    {fullTranscript}
+                  </div>
+                )}
               </div>
             </div>
           </div>
