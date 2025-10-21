@@ -24,14 +24,20 @@ const HomePage: React.FC = () => {
         throw new Error('Risposta di login non valida');
       }
       
-      // Salva il token
-      localStorage.setItem('token', response.access_token);
+      // Salva il token (CORRETTO: usa 'access_token' come authStore)
+      localStorage.setItem('access_token', response.access_token);
       console.log('✅ Token saved');
       
       // Ottieni il profilo utente
       console.log('🔵 Fetching user profile...');
       const userProfile = await authApi.getProfile();
       console.log('✅ User profile received:', userProfile);
+      
+      // Salva anche il ruolo (come authStore)
+      if (userProfile?.role) {
+        localStorage.setItem('current_user_role', userProfile.role);
+        console.log('💾 Ruolo utente salvato al login:', userProfile.role);
+      }
       
       // Converti il ruolo in stringa per essere sicuri
       const roleStr = String(userProfile.role).toLowerCase();
