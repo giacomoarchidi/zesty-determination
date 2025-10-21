@@ -138,14 +138,29 @@ const VideoRoom: React.FC = () => {
   // Forza il caricamento del profilo utente se non è presente
   useEffect(() => {
     const loadUserProfile = async () => {
+      const token = localStorage.getItem('access_token');
+      console.log('🔍 Check token:', { hasToken: !!token, token: token?.substring(0, 20) + '...' });
+      
+      if (!token) {
+        console.log('❌ Nessun token trovato - Redirect al login');
+        navigate('/login');
+        return;
+      }
+      
       if (!user && !authLoading) {
-        console.log('⚠️ User non presente, carico profilo...');
+        console.log('⚠️ User non presente ma token esiste, carico profilo...');
         await loadProfile();
-        console.log('✅ Profilo caricato:', useAuthStore.getState().user);
+        const loadedUser = useAuthStore.getState().user;
+        console.log('✅ Profilo caricato:', loadedUser);
+        
+        if (!loadedUser) {
+          console.log('❌ loadProfile fallito - Redirect al login');
+          navigate('/login');
+        }
       }
     };
     loadUserProfile();
-  }, [user, authLoading, loadProfile]);
+  }, [user, authLoading, loadProfile, navigate]);
   
   // Debug log all'avvio
   useEffect(() => {
