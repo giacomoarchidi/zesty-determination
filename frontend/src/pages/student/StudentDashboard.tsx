@@ -11,6 +11,7 @@ interface Lesson {
   status: string;
   tutor_name: string;
   room_slug?: string;
+  notes_text?: string;
 }
 
 interface Assignment {
@@ -429,14 +430,49 @@ const StudentDashboard: React.FC = () => {
               </svg>
               Appunti Recenti
             </h2>
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+            
+            {upcomingLessons.filter(l => l.status === 'completed' && l.notes_text).length > 0 ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {upcomingLessons
+                  .filter(l => l.status === 'completed' && l.notes_text)
+                  .slice(0, 5)
+                  .map((lesson: any) => (
+                    <div key={lesson.id} className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-green-400/30 transition-all duration-300 cursor-pointer group">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="text-white font-semibold group-hover:text-green-400 transition-colors">
+                            📚 {lesson.subject}
+                          </h3>
+                          <p className="text-white/60 text-sm">
+                            con {lesson.tutor_name} • {new Date(lesson.start_at).toLocaleDateString('it-IT')}
+                          </p>
+                        </div>
+                        <span className="text-green-400 text-xs bg-green-500/10 px-2 py-1 rounded-full">
+                          ✓ Completata
+                        </span>
+                      </div>
+                      <p className="text-white/70 text-sm line-clamp-2">
+                        {lesson.notes_text?.substring(0, 150)}...
+                      </p>
+                      <button className="mt-3 text-green-400 text-sm hover:text-green-300 transition-colors flex items-center gap-1">
+                        <span>Leggi appunti</span>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
               </div>
-              <p className="text-white/50 text-lg">Gli appunti delle lezioni completate appariranno qui</p>
-            </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <p className="text-white/50 text-lg">Gli appunti delle lezioni completate appariranno qui</p>
+              </div>
+            )}
           </div>
 
           <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl p-8">

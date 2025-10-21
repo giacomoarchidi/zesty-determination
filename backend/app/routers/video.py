@@ -459,3 +459,136 @@ async def get_notes(
     except Exception as e:
         logger.error(f"Errore get notes: {str(e)}")
         raise HTTPException(status_code=500, detail="Errore interno del server")
+
+
+# ----------------------
+# Appunti Finali Lezione
+# ----------------------
+
+class GenerateNotesRequest(BaseModel):
+    lesson_id: int
+    transcript: str
+
+class GenerateNotesResponse(BaseModel):
+    notes: str
+
+class SaveNotesRequest(BaseModel):
+    notes: str
+
+@router.post("/generate-notes", response_model=GenerateNotesResponse)
+async def generate_lesson_notes(
+    payload: GenerateNotesRequest,
+    current_user: User = Depends(require_roles([Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    """
+    Genera appunti formattati dalla trascrizione usando OpenAI
+    """
+    try:
+        from app.models.lesson import Lesson
+        from app.core.config import settings
+        from openai import OpenAI
+        
+        # Verifica che sia il tutor della lezione
+        lesson = db.query(Lesson).filter(Lesson.id == payload.lesson_id).first()
+        if not lesson or lesson.tutor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Solo il tutor della lezione può generare appunti")
+        
+        # Se OpenAI non configurato, usa trascrizione diretta formattata
+        if not settings.OPENAI_API_KEY:
+            formatted_notes = f"""# Appunti Lezione - {lesson.subject}
+
+📅 Data: {lesson.start_at.strftime('%d/%m/%Y alle %H:%M')}
+👨‍🏫 Tutor: {current_user.first_name} {current_user.last_name}
+
+## 📝 Trascrizione
+
+{payload.transcript}
+
+---
+_Appunti generati automaticamente dalla trascrizione della lezione_
+"""
+            return GenerateNotesResponse(notes=formatted_notes)
+        
+        # Genera appunti con OpenAI
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        
+        prompt = f"""Sei un assistente educativo esperto. Trasforma questa trascrizione di una lezione di {lesson.subject} in appunti ben strutturati e facili da studiare.
+
+Trascrizione della lezione:
+{payload.transcript}
+
+Genera appunti che includano:
+1. **Titolo e Introduzione** - Breve sommario degli argomenti trattati
+2. **Concetti Chiave** - Elenco puntato dei concetti principali spiegati
+3. **Esempi e Spiegazioni** - Dettagli importanti, esempi pratici
+4. **Formule o Definizioni** - Se presenti, scrivi formule matematiche usando LaTeX tra \\( \\) per inline o $$ $$ per blocchi
+5. **Riassunto Finale** - Breve recap di cosa è stato imparato
+
+IMPORTANTE:
+- Scrivi in italiano chiaro e professionale
+- Usa formattazione markdown (# per titoli, ** per grassetto, - per elenchi)
+- Per formule matematiche usa LaTeX: \\( formula \\) per inline, $$ formula $$ per blocco
+- Mantieni uno stile ordinato e pulito
+- Sii fedele al contenuto della trascrizione, non inventare
+"""
+        
+        response = client.chat.completions.create(
+            model=settings.OPENAI_MODEL or "gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Sei un assistente che crea appunti scolastici ben formattati da trascrizioni di lezioni."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        generated_notes = (response.choices[0].message.content or "").strip()
+        
+        logger.info(f"Appunti generati per lezione {payload.lesson_id} - {len(generated_notes)} caratteri")
+        
+        return GenerateNotesResponse(notes=generated_notes)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore generazione appunti: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Errore generazione appunti: {str(e)}")
+
+
+@router.post("/save-notes/{lesson_id}")
+async def save_lesson_notes(
+    lesson_id: int,
+    payload: SaveNotesRequest,
+    current_user: User = Depends(require_roles([Role.tutor])),
+    db: Session = Depends(get_db)
+):
+    """
+    Salva gli appunti confermati dal tutor nella lezione
+    """
+    try:
+        from app.models.lesson import Lesson
+        
+        # Verifica che sia il tutor della lezione
+        lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+        if not lesson or lesson.tutor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Solo il tutor della lezione può salvare appunti")
+        
+        # Salva appunti nella lezione
+        lesson.notes_text = payload.notes
+        lesson.status = "completed"  # Marca lezione come completata
+        db.commit()
+        
+        logger.info(f"Appunti salvati per lezione {lesson_id} - {len(payload.notes)} caratteri")
+        
+        return {
+            "message": "Appunti salvati con successo",
+            "lesson_id": lesson_id,
+            "notes_length": len(payload.notes)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore salvataggio appunti: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Errore salvataggio appunti: {str(e)}")

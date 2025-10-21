@@ -37,6 +37,10 @@ const VideoRoom: React.FC = () => {
   const [notesHidden, setNotesHidden] = useState<boolean>(true);
   const [notesActive, setNotesActive] = useState<boolean>(false);
   const isTutor = (user?.role || '').toLowerCase() === 'tutor';
+  const [showNotesConfirmModal, setShowNotesConfirmModal] = useState<boolean>(false);
+  const [generatedNotes, setGeneratedNotes] = useState<string>('');
+  const [isGeneratingNotes, setIsGeneratingNotes] = useState<boolean>(false);
+  const [notesEditable, setNotesEditable] = useState<string>('');
   const recognitionRef = useRef<any>(null);
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [interimText, setInterimText] = useState<string>('');
@@ -480,7 +484,7 @@ const VideoRoom: React.FC = () => {
 
   const leaveRoom = async () => {
     try {
-      console.log('📤 Uscita dalla video room...');
+      console.log('📤 Richiesta uscita dalla video room...');
       
       // Ferma la trascrizione se attiva
       if (recognitionRef.current) {
@@ -492,23 +496,49 @@ const VideoRoom: React.FC = () => {
         } catch (_) {}
       }
       
-      // Salva la trascrizione completa sul backend se disponibile
-      if (fullTranscript && fullTranscript.length > 0) {
+      // Se è un tutor E c'è trascrizione → mostra modale di conferma appunti
+      if (isTutor && fullTranscript && fullTranscript.length > 50) {
+        console.log('📝 Generazione appunti dalla trascrizione...');
+        setIsGeneratingNotes(true);
+        setShowNotesConfirmModal(true);
+        
+        // Genera appunti con OpenAI
         try {
-          console.log('💾 Salvataggio trascrizione completa...');
-          console.log('📊 Lunghezza finale:', fullTranscript.length, 'caratteri');
-          console.log('📝 Anteprima:', fullTranscript.substring(0, 200) + '...');
+          const response = await apiClient.post('/video/generate-notes', {
+            lesson_id: Number(lessonId),
+            transcript: fullTranscript
+          });
           
-          // TODO: Invia la trascrizione al backend
-          // await videoApi.saveTranscript(Number(lessonId), fullTranscript);
-          
-          // Per ora la logghiamo in console - implementeremo l'endpoint dopo
-          console.log('✅ Trascrizione completa salvata localmente');
+          const notes = response.data?.notes || fullTranscript;
+          setGeneratedNotes(notes);
+          setNotesEditable(notes);
+          setIsGeneratingNotes(false);
+          console.log('✅ Appunti generati con successo');
         } catch (e) {
-          console.error('⚠️ Errore salvataggio trascrizione:', e);
+          console.error('⚠️ Errore generazione appunti:', e);
+          // Fallback: usa la trascrizione diretta
+          setGeneratedNotes(fullTranscript);
+          setNotesEditable(fullTranscript);
+          setIsGeneratingNotes(false);
         }
+        
+        // Il modale è aperto - l'uscita vera avverrà dopo la conferma
+        return;
       }
       
+      // Se non è tutor o non c'è trascrizione, esci direttamente
+      await performLeaveRoom();
+      
+    } catch (err) {
+      console.error('❌ Errore leave room:', err);
+      // Prova comunque a navigare
+      navigate(-1);
+    }
+  };
+  
+  // Funzione separata per uscire effettivamente dalla room
+  const performLeaveRoom = async () => {
+    try {
       // Stop e chiudi tutti i track locali
       if (localVideoTrack) {
         localVideoTrack.stop();
@@ -537,7 +567,6 @@ const VideoRoom: React.FC = () => {
       }
     } catch (err) {
       console.error('❌ Errore leave room:', err);
-      // Prova comunque a navigare
       navigate(-1);
     }
   };
@@ -837,6 +866,111 @@ const VideoRoom: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modale Conferma Appunti (solo per tutor) */}
+        {showNotesConfirmModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-blue-900/90 to-purple-900/90 backdrop-blur-xl rounded-3xl border-2 border-blue-400/30 p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                    <span>📚</span>
+                    <span>Appunti della Lezione</span>
+                  </h3>
+                  <p className="text-white/70">
+                    Rivedi e conferma gli appunti generati dall'AI prima di inviarli allo studente
+                  </p>
+                </div>
+              </div>
+
+              {/* Loading State */}
+              {isGeneratingNotes ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="relative">
+                    <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-purple-600 rounded-full animate-spin" style={{animationDirection: 'reverse', animationDuration: '1.5s'}}></div>
+                  </div>
+                  <p className="mt-6 text-white/80 text-lg">✨ Sto generando appunti dettagliati con l'AI...</p>
+                  <p className="mt-2 text-white/60 text-sm">Analisi di {fullTranscript.length} caratteri di trascrizione</p>
+                </div>
+              ) : (
+                <>
+                  {/* Info Box */}
+                  <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-white/90 text-sm">
+                        <p className="font-semibold mb-1">💡 Suggerimenti:</p>
+                        <ul className="space-y-1 text-white/70">
+                          <li>• Puoi modificare gli appunti prima di confermare</li>
+                          <li>• Gli appunti supportano formattazione markdown e LaTeX</li>
+                          <li>• Una volta confermati, gli studenti li vedranno nella loro dashboard</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Editor Appunti */}
+                  <div className="mb-6">
+                    <label className="block text-white font-semibold mb-3 text-lg">
+                      ✏️ Appunti Generati (modifica se necessario)
+                    </label>
+                    <textarea
+                      value={notesEditable}
+                      onChange={(e) => setNotesEditable(e.target.value)}
+                      className="w-full min-h-[400px] px-4 py-3 bg-gray-900/50 border-2 border-blue-400/30 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 transition-all duration-300 resize-y font-mono text-sm leading-relaxed"
+                      placeholder="Gli appunti generati appariranno qui..."
+                    />
+                    <p className="text-white/50 text-xs mt-2">
+                      📝 Lunghezza: {notesEditable.length} caratteri | 
+                      Puoi usare LaTeX tra \( \) per formule matematiche
+                    </p>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-4">
+                    <button
+                      onClick={async () => {
+                        // Annulla - esci senza salvare appunti
+                        setShowNotesConfirmModal(false);
+                        await performLeaveRoom();
+                      }}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 border border-white/20"
+                    >
+                      ❌ Esci Senza Salvare
+                    </button>
+                    <button
+                      onClick={async () => {
+                        // Salva appunti e poi esci
+                        try {
+                          console.log('💾 Salvataggio appunti confermati...');
+                          
+                          await apiClient.post(`/video/save-notes/${lessonId}`, {
+                            notes: notesEditable
+                          });
+                          
+                          console.log('✅ Appunti salvati con successo!');
+                          setShowNotesConfirmModal(false);
+                          await performLeaveRoom();
+                        } catch (e) {
+                          console.error('❌ Errore salvataggio appunti:', e);
+                          alert('Errore nel salvataggio degli appunti. Riprova.');
+                        }
+                      }}
+                      disabled={!notesEditable || notesEditable.length < 10}
+                      className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      ✅ Conferma e Invia allo Studente
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
