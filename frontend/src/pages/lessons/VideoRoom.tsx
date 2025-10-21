@@ -41,7 +41,7 @@ const fixLatexDelimiters = (text: string): string => {
 const VideoRoom: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
-  const { user, loadProfile } = useAuthStore();
+  const { user, loadProfile, isLoading: authLoading } = useAuthStore();
   
   // Agora states
   const [client, setClient] = useState<IAgoraRTCClient | null>(null);
@@ -137,11 +137,15 @@ const VideoRoom: React.FC = () => {
   
   // Forza il caricamento del profilo utente se non è presente
   useEffect(() => {
-    if (!user) {
-      console.log('⚠️ User non presente, carico profilo...');
-      loadProfile();
-    }
-  }, []);
+    const loadUserProfile = async () => {
+      if (!user && !authLoading) {
+        console.log('⚠️ User non presente, carico profilo...');
+        await loadProfile();
+        console.log('✅ Profilo caricato:', useAuthStore.getState().user);
+      }
+    };
+    loadUserProfile();
+  }, [user, authLoading, loadProfile]);
   
   // Debug log all'avvio
   useEffect(() => {
@@ -758,7 +762,7 @@ const VideoRoom: React.FC = () => {
   };
 
   // Aspetta che user sia caricato
-  if (!user) {
+  if (!user || authLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
