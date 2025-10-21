@@ -19,9 +19,14 @@ import 'katex/dist/katex.min.css';
 const fixLatexDelimiters = (text: string): string => {
   let fixed = text;
   
-  // Converti ( comando_latex ) in \( comando_latex \)
-  // Solo se contiene backslash (comandi LaTeX) o pattern matematici
-  fixed = fixed.replace(/\(\s*([^()]*(?:\\[a-zA-Z]+|[x-z]\^[0-9]|\\neq|\\Delta)[^()]*)\s*\)/g, '\\($1\\)');
+  // Pattern 1: Converti ( comandi_latex ) in \( comandi_latex \)
+  // Usa negative lookbehind (?<!\\) per non toccare \( già corretti
+  // Cattura: backslash, simboli matematici (=, ^, _, ≠), lettere matematiche comuni
+  fixed = fixed.replace(/(?<!\\)\(\s*([^()]*(?:\\|[=≠±√]|[a-z]\s*[\^²³]|[a-z]\s*=)[^()]*)\s*\)/g, '\\($1\\)');
+  
+  // Pattern 2: Converti anche singole lettere matematiche: ( x ) → \( x \), ( a ) → \( a \)
+  // Ma solo se circondate da spazi/punteggiatura E non precedute da backslash
+  fixed = fixed.replace(/(?<!\\)(\s|^|:|\.|,)\(\s*([a-z])\s*\)(?=\s|:|\.|,|$)/gi, '$1\\($2\\)');
   
   return fixed;
 };
