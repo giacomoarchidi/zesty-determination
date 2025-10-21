@@ -116,6 +116,20 @@ const VideoRoom: React.FC = () => {
   
   const isTutor = (user?.role || '').toLowerCase() === 'tutor';
   
+  // States per trascrizione e riconoscimento speaker
+  const [showNotesConfirmModal, setShowNotesConfirmModal] = useState<boolean>(false);
+  const [generatedNotes, setGeneratedNotes] = useState<string>('');
+  const [isGeneratingNotes, setIsGeneratingNotes] = useState<boolean>(false);
+  const [notesEditable, setNotesEditable] = useState<string>('');
+  const [notesViewMode, setNotesViewMode] = useState<'preview' | 'edit'>('preview'); // Toggle per visualizzazione appunti
+  const recognitionRef = useRef<any>(null);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
+  const [interimText, setInterimText] = useState<string>('');
+  const [fullTranscript, setFullTranscript] = useState<string>(''); // Trascrizione completa accumulata
+  const [currentSpeaker, setCurrentSpeaker] = useState<'tutor' | 'student'>('tutor'); // Chi sta parlando
+  const [localVolume, setLocalVolume] = useState<number>(0); // Volume audio locale (tutor)
+  const [remoteVolume, setRemoteVolume] = useState<number>(0); // Volume audio remoto (studente)
+  
   // Debug log all'avvio
   useEffect(() => {
     console.log('🔍 VideoRoom - Informazioni utente:', {
@@ -148,19 +162,6 @@ const VideoRoom: React.FC = () => {
       }
     }
   }, [localVolume, remoteVolume, isRecording, isTranscribing, currentSpeaker]);
-  
-  const [showNotesConfirmModal, setShowNotesConfirmModal] = useState<boolean>(false);
-  const [generatedNotes, setGeneratedNotes] = useState<string>('');
-  const [isGeneratingNotes, setIsGeneratingNotes] = useState<boolean>(false);
-  const [notesEditable, setNotesEditable] = useState<string>('');
-  const [notesViewMode, setNotesViewMode] = useState<'preview' | 'edit'>('preview'); // Toggle per visualizzazione appunti
-  const recognitionRef = useRef<any>(null);
-  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
-  const [interimText, setInterimText] = useState<string>('');
-  const [fullTranscript, setFullTranscript] = useState<string>(''); // Trascrizione completa accumulata
-  const [currentSpeaker, setCurrentSpeaker] = useState<'tutor' | 'student'>('tutor'); // Chi sta parlando
-  const [localVolume, setLocalVolume] = useState<number>(0); // Volume audio locale (tutor)
-  const [remoteVolume, setRemoteVolume] = useState<number>(0); // Volume audio remoto (studente)
   
   // Refs
   const localVideoRef = useRef<HTMLDivElement>(null);
