@@ -555,7 +555,7 @@ const VideoRoom: React.FC = () => {
         } catch (_) {}
       }
       
-      // Controlla dinamicamente il ruolo (non usare isTutor che potrebbe essere stale)
+      // Controlla dinamicamente il ruolo
       const isTutorNow = checkIsTutor();
       
       // Log per debug
@@ -564,11 +564,12 @@ const VideoRoom: React.FC = () => {
         isTutorDynamic: isTutorNow,
         hasTranscript: !!fullTranscript,
         transcriptLength: fullTranscript.length,
-        willShowModal: isTutorNow && fullTranscript && fullTranscript.length > 50
+        willShowModal: fullTranscript && fullTranscript.length > 50
       });
       
-      // Se è un tutor E c'è trascrizione → mostra modale di conferma appunti
-      if (isTutorNow && fullTranscript && fullTranscript.length > 50) {
+      // MOSTRA SEMPRE il modale se c'è trascrizione (indipendentemente dal ruolo)
+      // Poi nel backend verificheremo che sia effettivamente il tutor
+      if (fullTranscript && fullTranscript.length > 50) {
         console.log('📝 Generazione appunti dalla trascrizione...');
         setIsGeneratingNotes(true);
         setShowNotesConfirmModal(true);
