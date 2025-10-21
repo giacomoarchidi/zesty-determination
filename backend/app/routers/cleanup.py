@@ -117,3 +117,33 @@ async def create_test_lesson(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Errore durante la creazione: {str(e)}")
+
+@router.post("/reset-user-password")
+async def reset_user_password(
+    email: str,
+    new_hashed_password: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Aggiorna la password di un utente con una password pre-hashata
+    """
+    try:
+        from app.core.security import get_password_hash
+        
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Utente non trovato")
+        
+        # Salva la password hashata (già hashata da SHA-256 nel frontend)
+        # Il backend farà il bcrypt su questa
+        user.hashed_password = get_password_hash(new_hashed_password)
+        db.commit()
+        
+        return {
+            "message": f"Password aggiornata per {email}",
+            "email": email
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore durante l'aggiornamento: {str(e)}")
