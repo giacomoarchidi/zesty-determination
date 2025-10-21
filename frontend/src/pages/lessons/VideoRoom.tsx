@@ -15,61 +15,15 @@ import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
-// Funzione per pulire e sistemare LaTeX malformato
-const cleanLatexInMarkdown = (text: string): string => {
-  let cleaned = text;
+// Funzione per convertire parentesi LaTeX malformate: ( formula ) → \( formula \)
+const fixLatexDelimiters = (text: string): string => {
+  let fixed = text;
   
-  // 1. Rimuovi spazi dentro delimitatori LaTeX: \( x \) → \(x\)
-  cleaned = cleaned.replace(/\\\(\s+/g, '\\(');
-  cleaned = cleaned.replace(/\s+\\\)/g, '\\)');
+  // Converti ( comando_latex ) in \( comando_latex \)
+  // Solo se contiene backslash (comandi LaTeX) o pattern matematici
+  fixed = fixed.replace(/\(\s*([^()]*(?:\\[a-zA-Z]+|[x-z]\^[0-9]|\\neq|\\Delta)[^()]*)\s*\)/g, '\\($1\\)');
   
-  // 2. Cattura formule LaTeX non delimitate (contengono comandi LaTeX come \frac, \sqrt, \pi)
-  // Pattern: linee che contengono comandi LaTeX ma non sono delimitate
-  cleaned = cleaned.split('\n').map((line) => {
-    const trimmed = line.trim();
-    
-    // Se la linea è vuota, skip
-    if (!trimmed) return line;
-    
-    // Se inizia con #, -, *, **, è markdown → skip
-    if (trimmed.match(/^(#{1,6}\s|[-*]\s|\*\*|>)/)) return line;
-    
-    // Se contiene già delimitatori LaTeX corretti, skip
-    if (trimmed.includes('\\(') || trimmed.includes('$$')) return line;
-    
-    // Se contiene comandi LaTeX (\frac, \sqrt, \pi, etc.) SENZA delimitatori
-    const hasLatexCommands = trimmed.match(/\\(frac|sqrt|pi|alpha|beta|gamma|delta|Delta|sum|int|infty|pm|times|div|leq|geq|neq|approx|equiv|cdot|ldots)/);
-    
-    if (hasLatexCommands) {
-      // È una formula LaTeX non delimitata - avvolgila in $$
-      return `$$\n${trimmed}\n$$`;
-    }
-    
-    // Se contiene pattern matematici tipici (=, ^, _, {}) ma nessun testo normale
-    const hasMathPattern = trimmed.match(/[=\^_{}]/);
-    const hasNoNormalText = !trimmed.match(/\b(il|la|lo|un|una|di|da|in|con|per|che|è|sono|dei|delle|degli)\b/i);
-    
-    if (hasMathPattern && hasNoNormalText && trimmed.length < 100) {
-      // Probabilmente una formula - avvolgila in $$
-      return `$$\n${trimmed}\n$$`;
-    }
-    
-    return line;
-  }).join('\n');
-  
-  // 3. Sistema formule inline nel testo che contengono comandi LaTeX
-  // Pattern: "(comando LaTeX)" nel mezzo del testo
-  cleaned = cleaned.replace(/\(([^()]*\\[a-zA-Z]+[^()]*)\)/g, '\\($1\\)');
-  
-  // 4. Rimuovi caratteri asterisco doppi malformati (∗∗ invece di **)
-  cleaned = cleaned.replace(/∗∗/g, '**');
-  
-  // 5. Sistema caratteri unicode matematici
-  cleaned = cleaned.replace(/±/g, '\\pm');
-  cleaned = cleaned.replace(/√/g, '\\sqrt');
-  cleaned = cleaned.replace(/∆/g, '\\Delta');
-  
-  return cleaned;
+  return fixed;
 };
 
 const VideoRoom: React.FC = () => {
@@ -1111,7 +1065,7 @@ const VideoRoom: React.FC = () => {
                             remarkPlugins={[remarkGfm, remarkMath]}
                             rehypePlugins={[rehypeKatex]}
                           >
-                            {notesEditable}
+                            {fixLatexDelimiters(notesEditable)}
                           </ReactMarkdown>
                         </div>
                       </>
