@@ -134,6 +134,7 @@ const VideoRoom: React.FC = () => {
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [interimText, setInterimText] = useState<string>('');
   const [fullTranscript, setFullTranscript] = useState<string>(''); // Trascrizione completa accumulata
+  const [currentSpeaker, setCurrentSpeaker] = useState<'tutor' | 'student'>('tutor'); // Chi sta parlando
   
   // Refs
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -457,10 +458,14 @@ const VideoRoom: React.FC = () => {
                 }
               }
               if (finalText) {
+                // Aggiungi prefisso parlante (solo se tutor - gli studenti non possono registrare)
+                const speaker = currentSpeaker === 'tutor' ? 'TUTOR' : 'STUDENTE';
+                const labeledText = `${speaker}: ${finalText}`;
+                
                 // Aggiungi alla trascrizione completa
-                setFullTranscript(prev => prev + finalText);
+                setFullTranscript(prev => prev + labeledText);
                 // Aggiungi anche alle note visuali
-                setNotesLines(prev => [...prev, finalText.trim()].slice(-200));
+                setNotesLines(prev => [...prev, labeledText.trim()].slice(-200));
               }
             };
             
@@ -728,12 +733,42 @@ const VideoRoom: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <>
-            <button
-              onClick={launchSampleQuiz}
-              className={"px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-sm"}
-            >
-              Lancia quiz
-            </button>
+            {/* Lancia quiz - Solo Tutor */}
+            {isTutor && (
+              <button
+                onClick={launchSampleQuiz}
+                className={"px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-sm"}
+              >
+                Lancia quiz
+              </button>
+            )}
+            
+            {/* Toggle Chi Parla - Solo Tutor durante registrazione */}
+            {isTutor && isRecording && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800/90 border border-white/20">
+                <span className="text-white/70 text-sm">Chi sta parlando:</span>
+                <button
+                  onClick={() => setCurrentSpeaker('tutor')}
+                  className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${
+                    currentSpeaker === 'tutor'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
+                >
+                  👨‍🏫 Tutor
+                </button>
+                <button
+                  onClick={() => setCurrentSpeaker('student')}
+                  className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${
+                    currentSpeaker === 'student'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
+                >
+                  🎓 Studente
+                </button>
+              </div>
+            )}
             {fullTranscript.length > 0 || notesLines.length > 0 ? (
               <button
                 onClick={() => { 
@@ -864,36 +899,42 @@ const VideoRoom: React.FC = () => {
               {isAudioOn ? '🎤' : '🎤'}
             </button>
 
-            {/* Screen Share */}
-            <button
-              onClick={toggleScreenShare}
-              className={`p-3 rounded-full ${
-                isScreenSharing ? 'bg-cyan-600 text-white' : 'bg-gray-600 text-white'
-              } hover:opacity-80 transition-opacity`}
-              title={isScreenSharing ? 'Ferma condivisione' : 'Condividi schermo'}
-            >
-              📺
-            </button>
+            {/* Screen Share - Solo Tutor */}
+            {isTutor && (
+              <button
+                onClick={toggleScreenShare}
+                className={`p-3 rounded-full ${
+                  isScreenSharing ? 'bg-cyan-600 text-white' : 'bg-gray-600 text-white'
+                } hover:opacity-80 transition-opacity`}
+                title={isScreenSharing ? 'Ferma condivisione' : 'Condividi schermo'}
+              >
+                📺
+              </button>
+            )}
 
-            {/* Recording con indicatore stato */}
-            <button
-              onClick={toggleRecording}
-              className={`relative p-3 rounded-full ${
-                isRecording ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-600 text-white'
-              } hover:opacity-80 transition-opacity`}
-              title={isRecording ? 'Pausa registrazione' : fullTranscript.length > 0 ? 'Riprendi registrazione' : 'Avvia registrazione'}
-            >
-              {isRecording ? '🔴' : fullTranscript.length > 0 ? '⏸️' : '⚫'}
-            </button>
+            {/* Recording con indicatore stato - Solo Tutor */}
+            {isTutor && (
+              <button
+                onClick={toggleRecording}
+                className={`relative p-3 rounded-full ${
+                  isRecording ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-600 text-white'
+                } hover:opacity-80 transition-opacity`}
+                title={isRecording ? 'Pausa registrazione' : fullTranscript.length > 0 ? 'Riprendi registrazione' : 'Avvia registrazione'}
+              >
+                {isRecording ? '🔴' : fullTranscript.length > 0 ? '⏸️' : '⚫'}
+              </button>
+            )}
 
-            {/* Leave Room */}
-            <button
-              onClick={leaveRoom}
-              className="p-3 rounded-full bg-red-600 text-white hover:opacity-80 transition-opacity"
-              title="Termina e salva lezione"
-            >
-              📞
-            </button>
+            {/* Leave Room - Solo Tutor */}
+            {isTutor && (
+              <button
+                onClick={leaveRoom}
+                className="p-3 rounded-full bg-red-600 text-white hover:opacity-80 transition-opacity"
+                title="Termina e salva lezione"
+              >
+                📞
+              </button>
+            )}
           </div>
         </div>
 
