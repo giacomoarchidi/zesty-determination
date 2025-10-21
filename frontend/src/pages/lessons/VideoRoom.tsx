@@ -576,13 +576,19 @@ const VideoRoom: React.FC = () => {
         console.log('✅ Uscito dal channel Agora');
       }
       
-      // Naviga alla dashboard appropriata usando il ruolo corretto
-      console.log('🔍 Ruolo utente:', user?.role, 'isTutor:', isTutor);
+      // Naviga alla dashboard appropriata
+      // Usa isTutor che è stato calcolato all'inizio del componente
+      console.log('🔍 Debug navigazione:', {
+        userRole: user?.role,
+        isTutorFlag: isTutor,
+        destination: isTutor ? 'tutor/dashboard' : 'student/dashboard'
+      });
+      
       if (isTutor) {
-        console.log('📍 Navigazione verso dashboard tutor');
+        console.log('✅ Navigazione verso dashboard TUTOR');
         navigate('/tutor/dashboard');
       } else {
-        console.log('📍 Navigazione verso dashboard studente');
+        console.log('✅ Navigazione verso dashboard STUDENTE');
         navigate('/student/dashboard');
       }
     } catch (err) {
