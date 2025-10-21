@@ -41,7 +41,6 @@ const VideoRoom: React.FC = () => {
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [interimText, setInterimText] = useState<string>('');
   const [fullTranscript, setFullTranscript] = useState<string>(''); // Trascrizione completa accumulata
-  const [isRecognitionPaused, setIsRecognitionPaused] = useState<boolean>(false);
   
   // Refs
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -338,7 +337,6 @@ const VideoRoom: React.FC = () => {
         // Avvia o riprendi la registrazione
         await videoApi.startRecording(Number(lessonId));
         setIsRecording(true);
-        setIsRecognitionPaused(false);
         
         // Avvia appunti AI in background (non mostrare box)
         try {
@@ -361,11 +359,11 @@ const VideoRoom: React.FC = () => {
               let finalText = '';
               for (let i = event.resultIndex; i < event.results.length; i++) {
                 const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal && !isRecognitionPaused) {
+                if (event.results[i].isFinal) {
                   finalText += transcript.trim() + ' ';
                 }
               }
-              if (finalText && !isRecognitionPaused) {
+              if (finalText) {
                 // Aggiungi alla trascrizione completa
                 setFullTranscript(prev => prev + finalText);
                 // Aggiungi anche alle note visuali
@@ -375,57 +373,43 @@ const VideoRoom: React.FC = () => {
             
             rec.onerror = (event: any) => {
               console.log('⚠️ Speech recognition error:', event.error);
-              // Se l'errore è "no-speech", riavvia automaticamente
-              if (event.error === 'no-speech' && !isRecognitionPaused) {
-                setTimeout(() => {
-                  if (recognitionRef.current && isRecording) {
-                    try {
-                      recognitionRef.current.start();
-                    } catch (_) {}
-                  }
-                }, 100);
-              }
             };
             
             rec.onend = () => {
-              // Se la registrazione è ancora attiva, riavvia automaticamente
-              if (isRecording && !isRecognitionPaused) {
-                try {
-                  recognitionRef.current?.start();
-                } catch (_) {}
-              } else {
-                setIsTranscribing(false);
-              }
+              setIsTranscribing(false);
+              console.log('🎙️ Speech recognition terminato');
             };
             
             recognitionRef.current = rec;
             rec.start();
             setIsTranscribing(true);
-            console.log('🎙️ Trascrizione avviata');
-          } else if (recognitionRef.current) {
-            // Riprendi la trascrizione esistente
-            setIsRecognitionPaused(false);
-            console.log('▶️ Trascrizione ripresa (continuazione)');
+            console.log('🎙️ Trascrizione avviata' + (fullTranscript.length > 0 ? ' (continua da ' + fullTranscript.length + ' caratteri)' : ''));
           }
         } catch (e) {
           console.log('⚠️ Trascrizione non disponibile:', e);
         }
       } else {
-        // Metti in pausa la registrazione (non fermare completamente)
+        // FERMA completamente la registrazione e la trascrizione
         await videoApi.stopRecording(Number(lessonId));
         setIsRecording(false);
-        setIsRecognitionPaused(true);
         
-        // Pausa appunti AI (ma non fermare completamente)
+        // Ferma appunti AI
         try {
           const data = await videoApi.stopNotes(Number(lessonId));
           setNotesActive(false);
           if (data.lines) setNotesLines(data.lines);
         } catch (_) {}
         
-        console.log('⏸️ Registrazione in pausa - Trascrizione: ' + fullTranscript.substring(0, 100) + '...');
-        console.log('📊 Lunghezza trascrizione totale:', fullTranscript.length, 'caratteri');
-        // NON fermiamo recognitionRef - continua a girare ma non aggiunge testo quando isRecognitionPaused è true
+        // FERMA completamente il speech recognition
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            recognitionRef.current = null;
+            setIsTranscribing(false);
+            console.log('⏸️ Registrazione fermata - Trascrizione salvata: ' + fullTranscript.length + ' caratteri');
+            console.log('📝 Anteprima: ' + fullTranscript.substring(0, 100) + '...');
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.error('Errore recording:', err);
@@ -695,15 +679,13 @@ const VideoRoom: React.FC = () => {
 
         {/* Controls */}
         <div className="bg-gray-800 rounded-lg p-4">
-          {/* Indicatore Trascrizione */}
-          {isTranscribing && (
+          {/* Indicatore Trascrizione - mostra SOLO quando sta registrando */}
+          {isRecording && isTranscribing && (
             <div className="mb-4 flex items-center justify-center gap-3">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                isRecording ? 'bg-red-600/20 border-2 border-red-500' : 'bg-yellow-600/20 border-2 border-yellow-500'
-              }`}>
-                <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'}`}></div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-600/20 border-2 border-red-500">
+                <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
                 <span className="text-white text-sm font-medium">
-                  {isRecording ? '🎙️ Trascrizione attiva' : '⏸️ Trascrizione in pausa'}
+                  🎙️ Trascrizione in corso
                 </span>
                 <span className="text-white/60 text-xs">
                   ({fullTranscript.length} caratteri)
