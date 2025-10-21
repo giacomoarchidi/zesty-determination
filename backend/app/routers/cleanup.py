@@ -148,6 +148,63 @@ async def reset_user_password(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Errore durante l'aggiornamento: {str(e)}")
 
+@router.post("/register-with-frontend-hash")
+async def register_with_frontend_hash(
+    email: str,
+    password_plaintext: str,
+    role: str,
+    first_name: str,
+    last_name: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Registra un utente simulando l'hashing del frontend (SHA-256)
+    """
+    try:
+        from app.core.security import get_password_hash
+        import hashlib
+        import base64
+        
+        # Simula l'hashing del frontend
+        sha256_hash = hashlib.sha256(password_plaintext.encode()).digest()
+        b64_full = base64.b64encode(sha256_hash).decode()
+        b64_urlsafe = b64_full.replace('+', '-').replace('/', '_').rstrip('=')
+        frontend_hashed = b64_urlsafe[:32]
+        
+        # Verifica se l'utente esiste già
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            # Aggiorna la password
+            existing_user.hashed_password = get_password_hash(frontend_hashed)
+            db.commit()
+            return {
+                "message": f"Password aggiornata per utente esistente: {email}",
+                "email": email,
+                "frontend_hash": frontend_hashed
+            }
+        
+        # Crea nuovo utente
+        user = User(
+            email=email,
+            hashed_password=get_password_hash(frontend_hashed),
+            role=role,
+            is_active=True
+        )
+        
+        db.add(user)
+        db.commit()
+        
+        return {
+            "message": f"Utente creato: {email}",
+            "email": email,
+            "role": role,
+            "frontend_hash": frontend_hashed
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore: {str(e)}")
+
 @router.get("/debug-lessons")
 async def debug_lessons(db: Session = Depends(get_db)):
     """
