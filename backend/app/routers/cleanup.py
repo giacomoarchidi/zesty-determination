@@ -6,10 +6,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.dependencies import get_db
 from app.models.user import User
+from app.models.lesson import Lesson
 from app.core.security import get_current_user
 from app.models.user import User as UserModel
+from datetime import datetime
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/cleanup", tags=["cleanup"])
+
+class TestLessonCreate(BaseModel):
+    tutor_id: int
+    student_id: int
+    subject: str
+    start_at: str
+    end_at: str
+    price: float
+    objectives: str
 
 @router.delete("/users/all")
 async def delete_all_users(
@@ -59,3 +71,49 @@ async def delete_all_users(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Errore durante la cancellazione: {str(e)}")
+
+@router.post("/create-test-lesson")
+async def create_test_lesson(
+    lesson_data: TestLessonCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Crea una lezione di test per oggi
+    """
+    try:
+        # Verifica che tutor e studente esistano
+        tutor = db.query(User).filter(User.id == lesson_data.tutor_id).first()
+        student = db.query(User).filter(User.id == lesson_data.student_id).first()
+        
+        if not tutor:
+            raise HTTPException(status_code=404, detail="Tutor non trovato")
+        if not student:
+            raise HTTPException(status_code=404, detail="Studente non trovato")
+        
+        # Crea la lezione
+        lesson = Lesson(
+            tutor_id=lesson_data.tutor_id,
+            student_id=lesson_data.student_id,
+            subject=lesson_data.subject,
+            start_at=datetime.fromisoformat(lesson_data.start_at.replace('Z', '+00:00')),
+            end_at=datetime.fromisoformat(lesson_data.end_at.replace('Z', '+00:00')),
+            status='confirmed',  # Imposta direttamente come confermata
+            price=lesson_data.price,
+            objectives=lesson_data.objectives,
+            room_slug=f"lesson-{lesson_data.tutor_id}-{lesson_data.student_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        )
+        
+        db.add(lesson)
+        db.commit()
+        db.refresh(lesson)
+        
+        return {
+            "message": "Lezione di test creata con successo",
+            "lesson_id": lesson.id,
+            "room_slug": lesson.room_slug,
+            "status": lesson.status
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore durante la creazione: {str(e)}")
