@@ -48,6 +48,12 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           // Load user profile
           const user = await authApi.getProfile();
           
+          // Salva il ruolo anche in un campo separato per VideoRoom
+          if (user?.role) {
+            localStorage.setItem('current_user_role', user.role);
+            console.log('💾 Ruolo utente salvato al login:', user.role);
+          }
+          
           set({
             user,
             token,
@@ -83,6 +89,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       logout: () => {
         localStorage.removeItem('access_token');
+        localStorage.removeItem('current_user_role');
         set({
           user: null,
           token: null,
@@ -98,6 +105,12 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({ isLoading: true });
         try {
           const user = await authApi.getProfile();
+          
+          // Salva il ruolo anche qui
+          if (user?.role) {
+            localStorage.setItem('current_user_role', user.role);
+          }
+          
           set({
             user,
             token,
