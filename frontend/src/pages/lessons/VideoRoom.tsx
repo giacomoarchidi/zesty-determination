@@ -116,6 +116,14 @@ const VideoRoom: React.FC = () => {
   
   const isTutor = (user?.role || '').toLowerCase() === 'tutor';
   
+  // DEBUG: Log del valore isTutor
+  console.log('🔍 isTutor determination:', {
+    user: user,
+    userRole: user?.role,
+    userRoleLowerCase: (user?.role || '').toLowerCase(),
+    isTutor: isTutor
+  });
+  
   // States per trascrizione e riconoscimento speaker
   const [showNotesConfirmModal, setShowNotesConfirmModal] = useState<boolean>(false);
   const [generatedNotes, setGeneratedNotes] = useState<string>('');
