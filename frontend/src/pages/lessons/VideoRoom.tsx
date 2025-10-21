@@ -14,6 +14,37 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+// Funzione per pulire e sistemare LaTeX malformato
+const cleanLatexInMarkdown = (text: string): string => {
+  let cleaned = text;
+  
+  // Rimuovi parentesi LaTeX malformate come ( ... ) e sostituisci con \( ... \)
+  cleaned = cleaned.replace(/\(\s*([^()]+?)\s*\)/g, (match, formula) => {
+    // Solo se contiene caratteri LaTeX tipici
+    if (formula.match(/[\\^_{}=±√∆Δ]/)) {
+      return `\\(${formula}\\)`;
+    }
+    return match;
+  });
+  
+  // Assicurati che le formule in blocco siano ben formate
+  // Se vedi pattern come: "formula senza delimitatori" su riga singola con simboli math
+  cleaned = cleaned.split('\n').map(line => {
+    const trimmed = line.trim();
+    // Se la riga contiene solo simboli matematici e non ha già delimitatori
+    if (trimmed.match(/^[a-zA-Z0-9\s\\^_{}=±√∆Δ+\-*/()]+$/) && 
+        trimmed.match(/[\\^_=±√∆Δ]/) &&
+        !trimmed.includes('\\(') && 
+        !trimmed.includes('$$')) {
+      // Potrebbe essere una formula standalone - avvolgila in $$
+      return `$$\n${trimmed}\n$$`;
+    }
+    return line;
+  }).join('\n');
+  
+  return cleaned;
+};
+
 const VideoRoom: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
@@ -1046,7 +1077,7 @@ const VideoRoom: React.FC = () => {
                             remarkPlugins={[remarkMath]}
                             rehypePlugins={[rehypeKatex]}
                           >
-                            {notesEditable}
+                            {cleanLatexInMarkdown(notesEditable)}
                           </ReactMarkdown>
                         </div>
                       </>
