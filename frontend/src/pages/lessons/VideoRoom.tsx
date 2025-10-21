@@ -15,18 +15,25 @@ import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
-// Funzione per convertire parentesi LaTeX malformate: ( formula ) → \( formula \)
+// Funzione per convertire delimitatori LaTeX: \( \) → $ e mantenere $$ per blocchi
 const fixLatexDelimiters = (text: string): string => {
   let fixed = text;
   
-  // Pattern 1: Converti ( comandi_latex ) in \( comandi_latex \)
+  // Pattern 1: Converti ( formula ) in $formula$ per inline (solo se contiene simboli math)
   // Usa negative lookbehind (?<!\\) per non toccare \( già corretti
-  // Cattura qualsiasi cosa con: backslash, ^, =, <, >, simboli matematici
-  fixed = fixed.replace(/(?<!\\)\(\s*([^()]*[\^\\=<>≠±√][^()]*)\s*\)/g, '\\($1\\)');
+  fixed = fixed.replace(/(?<!\\)\(\s*([^()]*[\^\\=<>≠±√][^()]*)\s*\)/g, (match, inner) => {
+    return `$${inner}$`;
+  });
   
-  // Pattern 2: Converti anche singole lettere matematiche: ( x ) → \( x \), ( a ) → \( a \)
-  // Ma solo se circondate da spazi/punteggiatura E non precedute da backslash
-  fixed = fixed.replace(/(?<!\\)(\s|^|:|\.|,)\(\s*([a-z])\s*\)(?=\s|:|\.|,|$)/gi, '$1\\($2\\)');
+  // Pattern 2: Converti anche singole lettere matematiche: ( x ) → $x$
+  fixed = fixed.replace(/(?<!\\)(\s|^|:|\.|,)\(\s*([a-z])\s*\)(?=\s|:|\.|,|$)/gi, (match, pre, letter) => {
+    return `${pre}$${letter}$`;
+  });
+  
+  // Pattern 3: Converti \( formula \) in $formula$ per compatibilità con remark-math
+  fixed = fixed.replace(/\\\(\s*([^)]+?)\s*\\\)/g, (match, formula) => {
+    return `$${formula}$`;
+  });
   
   return fixed;
 };
