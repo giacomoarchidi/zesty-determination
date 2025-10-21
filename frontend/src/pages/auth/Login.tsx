@@ -17,8 +17,15 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated && user) {
+      console.log('🔵 [Login] Utente autenticato:', user);
+      console.log('🔵 [Login] Ruolo utente:', user.role);
+      console.log('🔵 [Login] Tipo ruolo:', typeof user.role);
+      
       // Redirect based on user role
       const dashboardPath = getDashboardPath(user.role);
+      console.log('✅ [Login] Dashboard path calcolato:', dashboardPath);
+      console.log('➡️ [Login] Navigazione verso:', dashboardPath);
+      
       navigate(dashboardPath, { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
