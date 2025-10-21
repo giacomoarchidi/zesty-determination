@@ -36,6 +36,14 @@ const VideoRoom: React.FC = () => {
   const [notesLines, setNotesLines] = useState<string[]>([]);
   const [notesHidden, setNotesHidden] = useState<boolean>(true);
   const [notesActive, setNotesActive] = useState<boolean>(false);
+  // Funzione per controllare dinamicamente se è tutor
+  const checkIsTutor = () => {
+    const currentUser = useAuthStore.getState().user;
+    const isTutorRole = (currentUser?.role || '').toLowerCase() === 'tutor';
+    console.log('🔍 Check isTutor:', { currentUser, role: currentUser?.role, isTutorRole });
+    return isTutorRole;
+  };
+  
   const isTutor = (user?.role || '').toLowerCase() === 'tutor';
   
   // Debug log all'avvio
@@ -506,16 +514,20 @@ const VideoRoom: React.FC = () => {
         } catch (_) {}
       }
       
+      // Controlla dinamicamente il ruolo (non usare isTutor che potrebbe essere stale)
+      const isTutorNow = checkIsTutor();
+      
       // Log per debug
       console.log('🔍 Debug uscita:', {
-        isTutor,
+        isTutorStatic: isTutor,
+        isTutorDynamic: isTutorNow,
         hasTranscript: !!fullTranscript,
         transcriptLength: fullTranscript.length,
-        willShowModal: isTutor && fullTranscript && fullTranscript.length > 50
+        willShowModal: isTutorNow && fullTranscript && fullTranscript.length > 50
       });
       
       // Se è un tutor E c'è trascrizione → mostra modale di conferma appunti
-      if (isTutor && fullTranscript && fullTranscript.length > 50) {
+      if (isTutorNow && fullTranscript && fullTranscript.length > 50) {
         console.log('📝 Generazione appunti dalla trascrizione...');
         setIsGeneratingNotes(true);
         setShowNotesConfirmModal(true);
@@ -577,14 +589,17 @@ const VideoRoom: React.FC = () => {
       }
       
       // Naviga alla dashboard appropriata
-      // Usa isTutor che è stato calcolato all'inizio del componente
+      // Controlla dinamicamente il ruolo al momento dell'uscita
+      const isTutorNow = checkIsTutor();
+      
       console.log('🔍 Debug navigazione:', {
         userRole: user?.role,
-        isTutorFlag: isTutor,
-        destination: isTutor ? 'tutor/dashboard' : 'student/dashboard'
+        isTutorStatic: isTutor,
+        isTutorDynamic: isTutorNow,
+        destination: isTutorNow ? 'tutor/dashboard' : 'student/dashboard'
       });
       
-      if (isTutor) {
+      if (isTutorNow) {
         console.log('✅ Navigazione verso dashboard TUTOR');
         navigate('/tutor/dashboard');
       } else {
