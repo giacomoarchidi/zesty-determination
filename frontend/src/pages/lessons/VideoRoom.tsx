@@ -496,6 +496,14 @@ const VideoRoom: React.FC = () => {
         } catch (_) {}
       }
       
+      // Log per debug
+      console.log('🔍 Debug uscita:', {
+        isTutor,
+        hasTranscript: !!fullTranscript,
+        transcriptLength: fullTranscript.length,
+        willShowModal: isTutor && fullTranscript && fullTranscript.length > 50
+      });
+      
       // Se è un tutor E c'è trascrizione → mostra modale di conferma appunti
       if (isTutor && fullTranscript && fullTranscript.length > 50) {
         console.log('📝 Generazione appunti dalla trascrizione...');
@@ -558,11 +566,13 @@ const VideoRoom: React.FC = () => {
         console.log('✅ Uscito dal channel Agora');
       }
       
-      // Naviga alla dashboard appropriata
-      const user = useAuthStore.getState().user;
-      if (user?.role === 'tutor') {
+      // Naviga alla dashboard appropriata usando il ruolo corretto
+      console.log('🔍 Ruolo utente:', user?.role, 'isTutor:', isTutor);
+      if (isTutor) {
+        console.log('📍 Navigazione verso dashboard tutor');
         navigate('/tutor/dashboard');
       } else {
+        console.log('📍 Navigazione verso dashboard studente');
         navigate('/student/dashboard');
       }
     } catch (err) {
