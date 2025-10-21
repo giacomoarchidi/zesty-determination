@@ -45,6 +45,7 @@ const BookLesson: React.FC = () => {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingData, setBookingData] = useState({
     date: '',
+    time: '',
     duration: 60,
     notes: ''
   });
@@ -93,15 +94,15 @@ const BookLesson: React.FC = () => {
   };
 
   const handleBookLesson = async () => {
-    if (!selectedTutor || !bookingData.date) {
-      alert('Per favore seleziona una data');
+    if (!selectedTutor || !bookingData.date || !bookingData.time) {
+      alert('Per favore seleziona una data e un orario');
       return;
     }
 
     setBooking(true);
     try {
-      // Usa le 10:00 come orario di default (il tutor sceglierà l'orario esatto)
-      const startDateTime = new Date(`${bookingData.date}T10:00:00`).toISOString();
+      // Usa la data e orario selezionati dallo studente
+      const startDateTime = new Date(`${bookingData.date}T${bookingData.time}:00`).toISOString();
 
       const lessonData = {
         tutor_id: selectedTutor.id,
@@ -118,7 +119,7 @@ const BookLesson: React.FC = () => {
       
       setShowBookingModal(false);
       setShowSuccessModal(true);
-      setBookingData({ date: '', duration: 60, notes: '' });
+      setBookingData({ date: '', time: '', duration: 60, notes: '' });
       
     } catch (error) {
       console.error('❌ Errore prenotazione:', error);
@@ -457,7 +458,7 @@ const BookLesson: React.FC = () => {
               <button
                 onClick={() => {
                   setShowBookingModal(false);
-                  setBookingData({ date: '', duration: 60, notes: '' });
+                  setBookingData({ date: '', time: '', duration: 60, notes: '' });
                 }}
                 className="text-white/60 hover:text-white transition-colors duration-300"
               >
@@ -539,8 +540,48 @@ const BookLesson: React.FC = () => {
                   input[type="date"]::-webkit-datetime-edit-year-field:hover {
                     background: rgba(168, 85, 247, 0.3);
                   }
+                  input[type="time"]::-webkit-calendar-picker-indicator {
+                    filter: invert(1);
+                    opacity: 0.8;
+                    cursor: pointer;
+                    padding: 8px;
+                    border-radius: 8px;
+                    transition: all 0.3s;
+                  }
+                  input[type="time"]::-webkit-calendar-picker-indicator:hover {
+                    opacity: 1;
+                    background: rgba(168, 85, 247, 0.2);
+                    transform: scale(1.1);
+                  }
                 `}</style>
-                <p className="text-white/50 text-sm mt-2">Il tutor sceglierà l'orario esatto in base alla sua disponibilità</p>
+              </div>
+
+              {/* Orario */}
+              <div>
+                <label className="block text-white font-semibold mb-3 text-lg">
+                  🕐 Seleziona l'Orario <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={bookingData.time}
+                  onChange={(e) => setBookingData({ ...bookingData, time: e.target.value })}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-2 border-blue-400/30 rounded-2xl text-white text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 transition-all duration-300 hover:border-blue-400/50 hover:bg-blue-500/20 cursor-pointer"
+                  style={{
+                    colorScheme: 'dark',
+                  }}
+                />
+                {selectedTutor && selectedTutor.availability.length > 0 && (
+                  <div className="mt-3 p-4 bg-white/5 rounded-xl border border-white/10">
+                    <p className="text-white/70 text-sm mb-2">💡 Disponibilità del tutor:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedTutor.availability.map((slot, index) => (
+                        <div key={index} className="text-white/60 text-sm">
+                          <span className="font-medium">{WEEKDAYS[slot.weekday]}:</span> {slot.start_time} - {slot.end_time}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Durata */}
@@ -609,7 +650,7 @@ const BookLesson: React.FC = () => {
               <button
                 onClick={() => {
                   setShowBookingModal(false);
-                  setBookingData({ date: '', duration: 60, notes: '' });
+                  setBookingData({ date: '', time: '', duration: 60, notes: '' });
                 }}
                 className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 border border-white/20"
               >
@@ -617,7 +658,7 @@ const BookLesson: React.FC = () => {
               </button>
               <button
                 onClick={handleBookLesson}
-                disabled={booking || !bookingData.date}
+                disabled={booking || !bookingData.date || !bookingData.time}
                 className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {booking ? (
