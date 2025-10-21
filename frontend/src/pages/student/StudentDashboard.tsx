@@ -173,8 +173,20 @@ const StudentDashboard: React.FC = () => {
   };
 
   const canJoinLesson = (lesson: Lesson) => {
-    // Mostra sempre il pulsante per lezioni confermate
-    return lesson.status === 'confirmed';
+    // Permetti accesso alle lezioni confermate dello stesso giorno
+    if (lesson.status !== 'confirmed') {
+      return false;
+    }
+    
+    const lessonDate = new Date(lesson.start_at);
+    const today = new Date();
+    
+    // Controlla se è lo stesso giorno (anno, mese, giorno)
+    const isSameDay = lessonDate.getFullYear() === today.getFullYear() &&
+                     lessonDate.getMonth() === today.getMonth() &&
+                     lessonDate.getDate() === today.getDate();
+    
+    return isSameDay;
   };
 
   if (loading) {
