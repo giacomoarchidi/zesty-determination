@@ -577,18 +577,21 @@ const VideoRoom: React.FC = () => {
         
         // Genera appunti con OpenAI
         try {
+          console.log('📤 Invio richiesta a /video/generate-notes...');
           const response = await apiClient.post('/video/generate-notes', {
             lesson_id: Number(lessonId),
             transcript: fullTranscript
           });
           
+          console.log('📥 Risposta ricevuta:', response.data);
           const notes = response.data?.notes || fullTranscript;
           setGeneratedNotes(notes);
           setNotesEditable(notes);
           setIsGeneratingNotes(false);
-          console.log('✅ Appunti generati con successo');
-        } catch (e) {
-          console.error('⚠️ Errore generazione appunti:', e);
+          console.log('✅ Appunti generati con successo - lunghezza:', notes.length);
+        } catch (e: any) {
+          console.error('❌ Errore generazione appunti:', e);
+          console.error('❌ Dettagli errore:', e.response?.data);
           // Fallback: usa la trascrizione diretta
           setGeneratedNotes(fullTranscript);
           setNotesEditable(fullTranscript);
