@@ -27,12 +27,32 @@ async def delete_all_users(
         # Conta utenti prima della cancellazione
         user_count = db.query(User).count()
         
-        # Cancella tutti gli utenti
+        # Cancella prima le tabelle correlate per evitare foreign key constraints
+        from app.models.student_profile import StudentProfile
+        from app.models.tutor_profile import TutorProfile
+        from app.models.parent_profile import ParentProfile
+        from app.models.lesson import Lesson
+        from app.models.assignment import Assignment
+        from app.models.feedback import Feedback
+        from app.models.payment import Payment
+        from app.models.report import Report
+        
+        # Cancella in ordine per rispettare le foreign key
+        db.query(StudentProfile).delete()
+        db.query(TutorProfile).delete()
+        db.query(ParentProfile).delete()
+        db.query(Lesson).delete()
+        db.query(Assignment).delete()
+        db.query(Feedback).delete()
+        db.query(Payment).delete()
+        db.query(Report).delete()
+        
+        # Ora cancella tutti gli utenti
         db.query(User).delete()
         db.commit()
         
         return {
-            "message": f"Cancellati {user_count} utenti dal database",
+            "message": f"Cancellati {user_count} utenti e tutti i dati correlati dal database",
             "deleted_count": user_count
         }
         
