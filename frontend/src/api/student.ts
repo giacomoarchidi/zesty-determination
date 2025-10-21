@@ -32,7 +32,7 @@ export interface StudentAssignment {
 export const studentApi = {
   // Ottieni le lezioni dello studente
   getLessons: async (page: number = 1, size: number = 20): Promise<StudentLessonsResponse> => {
-    const response = await apiClient.get(`/lessons?page=${page}&size=${size}`);
+    const response = await apiClient.get(`/lessons/?page=${page}&size=${size}`);
     return response.data;
   },
 
