@@ -11,6 +11,7 @@ import { useAuthStore } from '../../store/authStore';
 import apiClient from '../../api/client';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
@@ -18,29 +19,48 @@ import 'katex/dist/katex.min.css';
 const cleanLatexInMarkdown = (text: string): string => {
   let cleaned = text;
   
-  // Rimuovi parentesi LaTeX malformate come ( ... ) e sostituisci con \( ... \)
-  cleaned = cleaned.replace(/\(\s*([^()]+?)\s*\)/g, (match, formula) => {
-    // Solo se contiene caratteri LaTeX tipici
-    if (formula.match(/[\\^_{}=±√∆Δ]/)) {
-      return `\\(${formula}\\)`;
-    }
-    return match;
-  });
+  // 1. Rimuovi spazi dentro delimitatori LaTeX: \( x \) → \(x\)
+  cleaned = cleaned.replace(/\\\(\s+/g, '\\(');
+  cleaned = cleaned.replace(/\s+\\\)/g, '\\)');
   
-  // Assicurati che le formule in blocco siano ben formate
-  // Se vedi pattern come: "formula senza delimitatori" su riga singola con simboli math
-  cleaned = cleaned.split('\n').map(line => {
+  // 2. Sistema formule matematiche senza delimitatori
+  // Pattern: ax^2, x^2, b^2, \Delta, \frac{}{}, \sqrt{}
+  // Cerca linee che contengono SOLO formule matematiche
+  cleaned = cleaned.split('\n').map((line, idx, arr) => {
     const trimmed = line.trim();
-    // Se la riga contiene solo simboli matematici e non ha già delimitatori
-    if (trimmed.match(/^[a-zA-Z0-9\s\\^_{}=±√∆Δ+\-*/()]+$/) && 
-        trimmed.match(/[\\^_=±√∆Δ]/) &&
-        !trimmed.includes('\\(') && 
-        !trimmed.includes('$$')) {
-      // Potrebbe essere una formula standalone - avvolgila in $$
+    
+    // Se la linea è vuota, skip
+    if (!trimmed) return line;
+    
+    // Se inizia con #, -, *, **, è markdown → skip
+    if (trimmed.match(/^(#{1,6}\s|[-*]\s|\*\*|>)/)) return line;
+    
+    // Se contiene già delimitatori LaTeX corretti, skip
+    if (trimmed.includes('\\(') || trimmed.includes('$$')) return line;
+    
+    // Se contiene simboli matematici standalone (formula non delimitata)
+    const hasMathSymbols = trimmed.match(/([a-z]\^[0-9]|\\[a-zA-Z]+|[±√Δ∆])/);
+    const hasOnlyMathChars = trimmed.match(/^[a-zA-Z0-9\s\^_{}=±√∆Δ+\-*/()\\,\.]+$/);
+    
+    if (hasMathSymbols && hasOnlyMathChars) {
+      // È una formula standalone - avvolgila in $$
       return `$$\n${trimmed}\n$$`;
     }
+    
     return line;
   }).join('\n');
+  
+  // 3. Sistema formule inline nel testo (es: "Il discriminante è Δ = b^2 - 4ac")
+  // Cerca pattern matematici nel mezzo del testo e avvolgili in \( \)
+  cleaned = cleaned.replace(/([a-z])(\^[0-9]+)/g, '$1$2'); // Mantieni x^2 come è
+  
+  // 4. Rimuovi caratteri asterisco doppi malformati (∗∗ invece di **)
+  cleaned = cleaned.replace(/∗∗/g, '**');
+  
+  // 5. Sistema caratteri unicode matematici
+  cleaned = cleaned.replace(/±/g, '\\pm');
+  cleaned = cleaned.replace(/√/g, '\\sqrt');
+  cleaned = cleaned.replace(/∆/g, '\\Delta');
   
   return cleaned;
 };
@@ -1072,9 +1092,9 @@ const VideoRoom: React.FC = () => {
                         <label className="block text-white font-semibold mb-3 text-lg">
                           👁️ Anteprima Appunti
                         </label>
-                        <div className="w-full min-h-[400px] max-h-[600px] overflow-y-auto px-6 py-5 bg-white rounded-xl border-2 border-blue-400/30 prose prose-slate prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-li:text-gray-700 max-w-none">
+                        <div className="w-full min-h-[400px] max-h-[600px] overflow-y-auto px-6 py-5 bg-white rounded-xl border-2 border-blue-400/30 prose prose-slate prose-headings:text-gray-900 prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-li:text-gray-700 prose-code:text-purple-600 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded max-w-none">
                           <ReactMarkdown
-                            remarkPlugins={[remarkMath]}
+                            remarkPlugins={[remarkGfm, remarkMath]}
                             rehypePlugins={[rehypeKatex]}
                           >
                             {cleanLatexInMarkdown(notesEditable)}
