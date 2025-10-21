@@ -37,6 +37,16 @@ const VideoRoom: React.FC = () => {
   const [notesHidden, setNotesHidden] = useState<boolean>(true);
   const [notesActive, setNotesActive] = useState<boolean>(false);
   const isTutor = (user?.role || '').toLowerCase() === 'tutor';
+  
+  // Debug log all'avvio
+  useEffect(() => {
+    console.log('🔍 VideoRoom - Informazioni utente:', {
+      user: user,
+      role: user?.role,
+      isTutor: isTutor,
+      email: user?.email
+    });
+  }, [user, isTutor]);
   const [showNotesConfirmModal, setShowNotesConfirmModal] = useState<boolean>(false);
   const [generatedNotes, setGeneratedNotes] = useState<string>('');
   const [isGeneratingNotes, setIsGeneratingNotes] = useState<boolean>(false);
