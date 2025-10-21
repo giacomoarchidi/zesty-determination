@@ -23,10 +23,9 @@ const cleanLatexInMarkdown = (text: string): string => {
   cleaned = cleaned.replace(/\\\(\s+/g, '\\(');
   cleaned = cleaned.replace(/\s+\\\)/g, '\\)');
   
-  // 2. Sistema formule matematiche senza delimitatori
-  // Pattern: ax^2, x^2, b^2, \Delta, \frac{}{}, \sqrt{}
-  // Cerca linee che contengono SOLO formule matematiche
-  cleaned = cleaned.split('\n').map((line, idx, arr) => {
+  // 2. Cattura formule LaTeX non delimitate (contengono comandi LaTeX come \frac, \sqrt, \pi)
+  // Pattern: linee che contengono comandi LaTeX ma non sono delimitate
+  cleaned = cleaned.split('\n').map((line) => {
     const trimmed = line.trim();
     
     // Se la linea è vuota, skip
@@ -38,21 +37,29 @@ const cleanLatexInMarkdown = (text: string): string => {
     // Se contiene già delimitatori LaTeX corretti, skip
     if (trimmed.includes('\\(') || trimmed.includes('$$')) return line;
     
-    // Se contiene simboli matematici standalone (formula non delimitata)
-    const hasMathSymbols = trimmed.match(/([a-z]\^[0-9]|\\[a-zA-Z]+|[±√Δ∆])/);
-    const hasOnlyMathChars = trimmed.match(/^[a-zA-Z0-9\s\^_{}=±√∆Δ+\-*/()\\,\.]+$/);
+    // Se contiene comandi LaTeX (\frac, \sqrt, \pi, etc.) SENZA delimitatori
+    const hasLatexCommands = trimmed.match(/\\(frac|sqrt|pi|alpha|beta|gamma|delta|Delta|sum|int|infty|pm|times|div|leq|geq|neq|approx|equiv|cdot|ldots)/);
     
-    if (hasMathSymbols && hasOnlyMathChars) {
-      // È una formula standalone - avvolgila in $$
+    if (hasLatexCommands) {
+      // È una formula LaTeX non delimitata - avvolgila in $$
+      return `$$\n${trimmed}\n$$`;
+    }
+    
+    // Se contiene pattern matematici tipici (=, ^, _, {}) ma nessun testo normale
+    const hasMathPattern = trimmed.match(/[=\^_{}]/);
+    const hasNoNormalText = !trimmed.match(/\b(il|la|lo|un|una|di|da|in|con|per|che|è|sono|dei|delle|degli)\b/i);
+    
+    if (hasMathPattern && hasNoNormalText && trimmed.length < 100) {
+      // Probabilmente una formula - avvolgila in $$
       return `$$\n${trimmed}\n$$`;
     }
     
     return line;
   }).join('\n');
   
-  // 3. Sistema formule inline nel testo (es: "Il discriminante è Δ = b^2 - 4ac")
-  // Cerca pattern matematici nel mezzo del testo e avvolgili in \( \)
-  cleaned = cleaned.replace(/([a-z])(\^[0-9]+)/g, '$1$2'); // Mantieni x^2 come è
+  // 3. Sistema formule inline nel testo che contengono comandi LaTeX
+  // Pattern: "(comando LaTeX)" nel mezzo del testo
+  cleaned = cleaned.replace(/\(([^()]*\\[a-zA-Z]+[^()]*)\)/g, '\\($1\\)');
   
   // 4. Rimuovi caratteri asterisco doppi malformati (∗∗ invece di **)
   cleaned = cleaned.replace(/∗∗/g, '**');
