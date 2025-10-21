@@ -522,25 +522,36 @@ Genera appunti che includano:
 1. **Titolo e Introduzione** - Breve sommario degli argomenti trattati
 2. **Concetti Chiave** - Elenco puntato dei concetti principali spiegati
 3. **Esempi e Spiegazioni** - Dettagli importanti, esempi pratici
-4. **Formule o Definizioni** - Se presenti, scrivi formule matematiche usando LaTeX tra \\( \\) per inline o $$ $$ per blocchi
+4. **Formule o Definizioni** - Se presenti, scrivi formule matematiche usando LaTeX
 5. **Riassunto Finale** - Breve recap di cosa è stato imparato
 
-IMPORTANTE:
+IMPORTANTE - SINTASSI LATEX:
+- Per formule inline usa: \\( formula \\)
+  Esempio: Il discriminante è \\( \\Delta = b^2 - 4ac \\)
+- Per formule in blocco usa: $$ seguito da newline, formula, newline, $$
+  Esempio:
+  $$
+  x = \\frac{{-b \\pm \\sqrt{{\\Delta}}}}{{2a}}
+  $$
+- Usa sempre doppie backslash per comandi LaTeX: \\frac, \\sqrt, \\Delta
+- NON usare parentesi tonde semplice per formule, usa SOLO \\( \\) o $$ $$
+
+REGOLE DI FORMATTAZIONE:
 - Scrivi in italiano chiaro e professionale
-- Usa formattazione markdown (# per titoli, ** per grassetto, - per elenchi)
-- Per formule matematiche usa LaTeX: \\( formula \\) per inline, $$ formula $$ per blocco
+- Usa markdown: # per titoli, ** per grassetto, - per elenchi
 - Mantieni uno stile ordinato e pulito
 - Sii fedele al contenuto della trascrizione, non inventare
+- Assicurati che TUTTE le formule matematiche siano in LaTeX corretto
 """
         
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL or "gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Sei un assistente che crea appunti scolastici ben formattati da trascrizioni di lezioni."},
+                {"role": "system", "content": "Sei un assistente che crea appunti scolastici ben formattati da trascrizioni di lezioni. Usa SEMPRE la sintassi LaTeX corretta per le formule matematiche: \\( \\) per inline e $$ $$ per blocchi. Assicurati che ogni formula matematica sia racchiusa in questi delimitatori."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
-            max_tokens=2000
+            temperature=0.5,
+            max_tokens=2500
         )
         
         generated_notes = (response.choices[0].message.content or "").strip()
