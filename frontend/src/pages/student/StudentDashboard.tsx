@@ -8,6 +8,28 @@ import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+// Funzione per convertire delimitatori LaTeX: \( \) → $ per compatibilità remark-math
+const fixLatexDelimiters = (text: string): string => {
+  let fixed = text;
+  
+  // Pattern 1: Converti ( formula ) in $formula$ (solo se contiene simboli math)
+  fixed = fixed.replace(/(?<!\\)\(\s*([^()]*[\^\\=<>≠±√][^()]*)\s*\)/g, (match, inner) => {
+    return `$${inner}$`;
+  });
+  
+  // Pattern 2: Converti anche singole lettere matematiche: ( x ) → $x$
+  fixed = fixed.replace(/(?<!\\)(\s|^|:|\.|,)\(\s*([a-z])\s*\)(?=\s|:|\.|,|$)/gi, (match, pre, letter) => {
+    return `${pre}$${letter}$`;
+  });
+  
+  // Pattern 3: Converti \( formula \) in $formula$ per compatibilità con remark-math
+  fixed = fixed.replace(/\\\(\s*([^)]+?)\s*\\\)/g, (match, formula) => {
+    return `$${formula}$`;
+  });
+  
+  return fixed;
+};
+
 interface Lesson {
   id: number;
   subject: string;
@@ -538,7 +560,7 @@ const StudentDashboard: React.FC = () => {
                 remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[rehypeKatex]}
               >
-                {selectedNotes.notes}
+                {fixLatexDelimiters(selectedNotes.notes)}
               </ReactMarkdown>
             </div>
 
