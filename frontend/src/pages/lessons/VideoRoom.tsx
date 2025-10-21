@@ -698,17 +698,17 @@ const VideoRoom: React.FC = () => {
       }
       
       // Naviga alla dashboard appropriata
-      // Controlla dinamicamente il ruolo al momento dell'uscita
-      const isTutorNow = checkIsTutor();
+      // Usa direttamente user.role dall'authStore (più affidabile)
+      const userRole = useAuthStore.getState().user?.role?.toLowerCase();
+      const isTutorRole = userRole === 'tutor';
       
       console.log('🔍 Debug navigazione:', {
-        userRole: user?.role,
-        isTutorStatic: isTutor,
-        isTutorDynamic: isTutorNow,
-        destination: isTutorNow ? 'tutor/dashboard' : 'student/dashboard'
+        userRole: userRole,
+        isTutorRole: isTutorRole,
+        destination: isTutorRole ? 'tutor/dashboard' : 'student/dashboard'
       });
       
-      if (isTutorNow) {
+      if (isTutorRole) {
         console.log('✅ Navigazione verso dashboard TUTOR');
         navigate('/tutor/dashboard');
       } else {

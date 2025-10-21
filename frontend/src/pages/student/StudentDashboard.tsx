@@ -54,7 +54,8 @@ const StudentDashboard: React.FC = () => {
             end_at: lesson.end_at,
             status: lesson.status,
             tutor_name: lesson.tutor_name || 'Tutor',
-            room_slug: lesson.room_slug
+            room_slug: lesson.room_slug,
+            notes_text: lesson.notes_text // Aggiunto per mostrare appunti
           }));
           
           setUpcomingLessons(lessons);
