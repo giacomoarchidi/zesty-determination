@@ -1104,7 +1104,7 @@ const VideoRoom: React.FC = () => {
                             remarkPlugins={[remarkGfm, remarkMath]}
                             rehypePlugins={[rehypeKatex]}
                           >
-                            {cleanLatexInMarkdown(notesEditable)}
+                            {notesEditable}
                           </ReactMarkdown>
                         </div>
                       </>
