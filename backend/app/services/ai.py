@@ -241,12 +241,83 @@ def generate_assignment_with_openai(topic: str, difficulty: str, subject: str) -
     """Generate structured assignment using OpenAI."""
     model = settings.OPENAI_MODEL or "gpt-4o-mini"
     if not settings.OPENAI_API_KEY:
-        # Fallback mock
+        # Fallback mock con contenuto più dettagliato
+        difficulty_it = {'easy': 'facile', 'medium': 'medio', 'hard': 'difficile'}.get(difficulty, difficulty)
+        
+        # Genera contenuto basato sulla materia e argomento
+        templates = {
+            'Matematica': {
+                'description': f"""Compito di {subject} - Argomento: {topic}
+
+Descrizione:
+Questo compito ti permetterà di approfondire il tema "{topic}" attraverso esercizi pratici e teorici di livello {difficulty_it}.
+
+Esercizi:
+1. Risolvi i problemi proposti applicando le formule e i metodi studiati
+2. Verifica i risultati e controlla che siano coerenti
+3. Scrivi i passaggi in modo chiaro e ordinato
+4. Indica le unità di misura quando richiesto""",
+                'instructions': """Istruzioni:
+- Leggi attentamente ogni esercizio prima di iniziare
+- Mostra TUTTI i passaggi del tuo ragionamento
+- Usa notazione matematica corretta
+- Controlla i risultati alla fine
+- Consegna entro la data indicata""",
+                'solutions': """Soluzioni:
+Le soluzioni verranno fornite dopo la consegna del compito.
+Confronta il tuo lavoro con le soluzioni per identificare eventuali errori e capire i concetti."""
+            },
+            'Fisica': {
+                'description': f"""Compito di {subject} - Argomento: {topic}
+
+Descrizione:
+Questo compito ti aiuterà a comprendere meglio "{topic}" attraverso problemi pratici e applicazioni reali di livello {difficulty_it}.
+
+Esercizi:
+1. Analizza le situazioni fisiche proposte
+2. Identifica le leggi e principi da applicare
+3. Risolvi i problemi mostrando tutti i passaggi
+4. Verifica che i risultati abbiano senso fisicamente""",
+                'instructions': """Istruzioni:
+- Disegna schemi o diagrammi quando utile
+- Indica chiaramente le grandezze fisiche e le unità
+- Spiega il ragionamento dietro ogni passaggio
+- Verifica la coerenza dimensionale dei risultati
+- Consegna entro la scadenza""",
+                'solutions': """Soluzioni:
+Le soluzioni complete saranno disponibili dopo la consegna.
+Usale per verificare il tuo lavoro e approfondire la comprensione."""
+            },
+            'default': {
+                'description': f"""Compito di {subject} - Argomento: {topic}
+
+Descrizione:
+Approfondisci il tema "{topic}" attraverso questo compito di livello {difficulty_it}.
+
+Obiettivi:
+- Comprendere i concetti fondamentali
+- Applicare le conoscenze acquisite
+- Sviluppare capacità di analisi critica
+- Migliorare le competenze nella materia""",
+                'instructions': """Istruzioni:
+- Leggi attentamente le consegne
+- Rispondi in modo completo e strutturato
+- Motiva le tue risposte quando richiesto
+- Cita fonti se utilizzi materiali esterni
+- Rispetta la data di consegna""",
+                'solutions': """Soluzioni:
+Le soluzioni saranno rese disponibili dopo la correzione.
+Confronta il tuo lavoro per migliorare la comprensione."""
+            }
+        }
+        
+        template = templates.get(subject, templates['default'])
+        
         return {
-            "title": f"Compito: {topic}",
-            "description": f"Compito di {subject} sul tema: {topic}. Difficoltà: {difficulty}.",
-            "instructions": "1) Esegui gli esercizi proposti. 2) Mostra tutti i passaggi. 3) Consegna entro la data indicata.",
-            "solutions": "Soluzioni: ..."
+            "title": f"{topic}",
+            "description": template['description'],
+            "instructions": template['instructions'],
+            "solutions": template['solutions']
         }
 
     sys = "Sei un docente. Genera un compito chiaro, strutturato e in italiano. Includi alla fine un blocco 'Soluzioni'."
