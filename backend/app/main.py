@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.routers import (
     auth, users, lessons, availability, payments, assignments, files, feedback, reports, 
-    tutor, parent, admin, health, video
+    tutor, parent, admin, health, video, cleanup
 )
 import logging
 import os
@@ -146,6 +146,7 @@ app.include_router(tutor.router, prefix="/api/tutor", tags=["tutor"])
 app.include_router(parent.router, prefix="/api/parent", tags=["parent"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(video.router, prefix="/api/video", tags=["video"])
+app.include_router(cleanup.router, tags=["cleanup"])
 
 # Root endpoint  
 @app.get("/")
