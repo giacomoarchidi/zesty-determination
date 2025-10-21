@@ -147,3 +147,36 @@ async def reset_user_password(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Errore durante l'aggiornamento: {str(e)}")
+
+@router.get("/debug-lessons")
+async def debug_lessons(db: Session = Depends(get_db)):
+    """
+    Mostra tutte le lezioni nel database per debug
+    """
+    try:
+        lessons = db.query(Lesson).all()
+        
+        result = []
+        for lesson in lessons:
+            student = db.query(User).filter(User.id == lesson.student_id).first()
+            tutor = db.query(User).filter(User.id == lesson.tutor_id).first()
+            
+            result.append({
+                "id": lesson.id,
+                "subject": lesson.subject,
+                "student_id": lesson.student_id,
+                "student_email": student.email if student else None,
+                "tutor_id": lesson.tutor_id,
+                "tutor_email": tutor.email if tutor else None,
+                "status": lesson.status,
+                "start_at": lesson.start_at.isoformat() if lesson.start_at else None,
+                "room_slug": lesson.room_slug
+            })
+        
+        return {
+            "total_lessons": len(result),
+            "lessons": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore: {str(e)}")
