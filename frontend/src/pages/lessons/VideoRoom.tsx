@@ -1100,6 +1100,13 @@ const VideoRoom: React.FC = () => {
                           👁️ Anteprima Appunti
                         </label>
                         <div className="w-full min-h-[400px] max-h-[600px] overflow-y-auto px-6 py-5 bg-white rounded-xl border-2 border-blue-400/30 prose prose-slate prose-headings:text-gray-900 prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-li:text-gray-700 prose-code:text-purple-600 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded max-w-none">
+                          <style>{`
+                            /* Forza colore nero per formule LaTeX KaTeX */
+                            .katex { color: #1a1a1a !important; }
+                            .katex * { color: #1a1a1a !important; }
+                            .katex-display { margin: 1.5rem 0 !important; }
+                            .katex-display .katex { font-size: 1.2rem !important; }
+                          `}</style>
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm, remarkMath]}
                             rehypePlugins={[rehypeKatex]}
