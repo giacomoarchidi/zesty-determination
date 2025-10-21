@@ -125,6 +125,30 @@ const VideoRoom: React.FC = () => {
       email: user?.email
     });
   }, [user, isTutor]);
+  
+  // Auto-detect chi sta parlando basandosi sul volume
+  useEffect(() => {
+    if (!isRecording || !isTranscribing) return;
+    
+    // Se il volume locale è significativamente più alto → Tutor parla
+    // Se il volume remoto è significativamente più alto → Studente parla
+    const threshold = 10; // Soglia minima di volume per considerare qualcuno "sta parlando"
+    
+    if (localVolume > threshold && localVolume > remoteVolume * 1.5) {
+      // Tutor sta parlando
+      if (currentSpeaker !== 'tutor') {
+        console.log('🎙️ Auto-detect: TUTOR sta parlando (volume:', localVolume, ')');
+        setCurrentSpeaker('tutor');
+      }
+    } else if (remoteVolume > threshold && remoteVolume > localVolume * 1.5) {
+      // Studente sta parlando
+      if (currentSpeaker !== 'student') {
+        console.log('🎙️ Auto-detect: STUDENTE sta parlando (volume:', remoteVolume, ')');
+        setCurrentSpeaker('student');
+      }
+    }
+  }, [localVolume, remoteVolume, isRecording, isTranscribing, currentSpeaker]);
+  
   const [showNotesConfirmModal, setShowNotesConfirmModal] = useState<boolean>(false);
   const [generatedNotes, setGeneratedNotes] = useState<string>('');
   const [isGeneratingNotes, setIsGeneratingNotes] = useState<boolean>(false);
@@ -135,6 +159,8 @@ const VideoRoom: React.FC = () => {
   const [interimText, setInterimText] = useState<string>('');
   const [fullTranscript, setFullTranscript] = useState<string>(''); // Trascrizione completa accumulata
   const [currentSpeaker, setCurrentSpeaker] = useState<'tutor' | 'student'>('tutor'); // Chi sta parlando
+  const [localVolume, setLocalVolume] = useState<number>(0); // Volume audio locale (tutor)
+  const [remoteVolume, setRemoteVolume] = useState<number>(0); // Volume audio remoto (studente)
   
   // Refs
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -190,6 +216,24 @@ const VideoRoom: React.FC = () => {
         agoraClient.on('user-published', handleUserPublished);
         agoraClient.on('user-unpublished', handleUserUnpublished);
         agoraClient.on('user-left', handleUserLeft);
+        
+        // Abilita volume indicator per riconoscere chi sta parlando
+        agoraClient.enableAudioVolumeIndicator();
+        
+        // Listener per volume (per auto-detect chi sta parlando)
+        agoraClient.on('volume-indicator', (volumes) => {
+          volumes.forEach((volume: any) => {
+            if (volume.level > 0) {
+              if (volume.uid === 0) {
+                // Volume locale (tutor)
+                setLocalVolume(volume.level);
+              } else {
+                // Volume remoto (studente)
+                setRemoteVolume(volume.level);
+              }
+            }
+          });
+        });
 
         // Join channel
         await agoraClient.join(
@@ -743,30 +787,17 @@ const VideoRoom: React.FC = () => {
               </button>
             )}
             
-            {/* Toggle Chi Parla - Solo Tutor durante registrazione */}
-            {isTutor && isRecording && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800/90 border border-white/20">
-                <span className="text-white/70 text-sm">Chi sta parlando:</span>
-                <button
-                  onClick={() => setCurrentSpeaker('tutor')}
-                  className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${
-                    currentSpeaker === 'tutor'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
-                  }`}
-                >
-                  👨‍🏫 Tutor
-                </button>
-                <button
-                  onClick={() => setCurrentSpeaker('student')}
-                  className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${
-                    currentSpeaker === 'student'
-                      ? 'bg-green-500 text-white'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
-                  }`}
-                >
-                  🎓 Studente
-                </button>
+            {/* Indicatore Chi Sta Parlando - Solo Tutor durante registrazione */}
+            {isTutor && isRecording && isTranscribing && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/90 border border-white/20 animate-pulse">
+                <span className="text-white/70 text-sm">🎙️ Sta parlando:</span>
+                <span className={`px-3 py-1 rounded-lg text-sm font-bold ${
+                  currentSpeaker === 'tutor'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-green-500 text-white'
+                }`}>
+                  {currentSpeaker === 'tutor' ? '👨‍🏫 Tutor' : '🎓 Studente'}
+                </span>
               </div>
             )}
             {fullTranscript.length > 0 || notesLines.length > 0 ? (
