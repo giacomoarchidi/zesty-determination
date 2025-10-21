@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AgoraRTC, { 
   type IAgoraRTCClient, 
@@ -114,7 +114,12 @@ const VideoRoom: React.FC = () => {
     return false;
   };
   
-  const isTutor = (user?.role || '').toLowerCase() === 'tutor';
+  // Calcola isTutor dinamicamente quando user cambia
+  const isTutor = useMemo(() => {
+    const result = (user?.role || '').toLowerCase() === 'tutor';
+    console.log('🔄 isTutor ricalcolato:', { userRole: user?.role, isTutor: result });
+    return result;
+  }, [user]);
   
   // States per trascrizione e riconoscimento speaker
   const [showNotesConfirmModal, setShowNotesConfirmModal] = useState<boolean>(false);
