@@ -525,16 +525,24 @@ Genera appunti che includano:
 4. **Formule o Definizioni** - Se presenti, scrivi formule matematiche usando LaTeX
 5. **Riassunto Finale** - Breve recap di cosa è stato imparato
 
-IMPORTANTE - SINTASSI LATEX:
-- Per formule inline usa: \\( formula \\)
-  Esempio: Il discriminante è \\( \\Delta = b^2 - 4ac \\)
-- Per formule in blocco usa: $$ seguito da newline, formula, newline, $$
-  Esempio:
+IMPORTANTE - SINTASSI LATEX (OBBLIGATORIA):
+- Per formule inline usa SEMPRE: \\( formula \\)
+  Esempio CORRETTO: Il discriminante è \\( \\Delta = b^2 - 4ac \\)
+  Esempio SBAGLIATO: Il discriminante è (\\Delta = b^2 - 4ac)
+  
+- Per formule in blocco usa SEMPRE: $$ sulla sua linea, formula, $$
+  Esempio CORRETTO:
   $$
   x = \\frac{{-b \\pm \\sqrt{{\\Delta}}}}{{2a}}
   $$
-- Usa sempre doppie backslash per comandi LaTeX: \\frac, \\sqrt, \\Delta
-- NON usare parentesi tonde semplice per formule, usa SOLO \\( \\) o $$ $$
+  
+  Esempio SBAGLIATO:
+  x = \\frac{{-b \\pm \\sqrt{{\\Delta}}}}{{2a}}
+  
+- OGNI formula matematica DEVE essere racchiusa in \\( \\) o $$ $$
+- Usa sempre doppie backslash: \\frac, \\sqrt, \\Delta, \\pi
+- NON scrivere MAI formule senza delimitatori
+- NON usare parentesi tonde semplici () per formule
 
 REGOLE DI FORMATTAZIONE:
 - Scrivi in italiano chiaro e professionale
@@ -547,11 +555,11 @@ REGOLE DI FORMATTAZIONE:
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL or "gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Sei un assistente che crea appunti scolastici ben formattati da trascrizioni di lezioni. Usa SEMPRE la sintassi LaTeX corretta per le formule matematiche: \\( \\) per inline e $$ $$ per blocchi. Assicurati che ogni formula matematica sia racchiusa in questi delimitatori."},
+                {"role": "system", "content": "Sei un assistente esperto che crea appunti scolastici ben formattati da trascrizioni di lezioni. È OBBLIGATORIO usare la sintassi LaTeX corretta: \\( \\) per formule inline e $$ $$ per formule in blocco. OGNI formula matematica deve essere racchiusa in questi delimitatori. NON scrivere MAI formule senza delimitatori."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.5,
-            max_tokens=2500
+            temperature=0.3,
+            max_tokens=3000
         )
         
         generated_notes = (response.choices[0].message.content or "").strip()
