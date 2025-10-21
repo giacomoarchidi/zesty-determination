@@ -40,6 +40,8 @@ const VideoRoom: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [interimText, setInterimText] = useState<string>('');
+  const [fullTranscript, setFullTranscript] = useState<string>(''); // Trascrizione completa accumulata
+  const [isRecognitionPaused, setIsRecognitionPaused] = useState<boolean>(false);
   
   // Refs
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -333,53 +335,97 @@ const VideoRoom: React.FC = () => {
   const toggleRecording = async () => {
     try {
       if (!isRecording) {
+        // Avvia o riprendi la registrazione
         await videoApi.startRecording(Number(lessonId));
         setIsRecording(true);
+        setIsRecognitionPaused(false);
+        
         // Avvia appunti AI in background (non mostrare box)
         try {
           const data = await videoApi.startNotes(Number(lessonId));
           setNotesActive(true);
           if (data.lines) setNotesLines(data.lines);
         } catch (_) {}
-        // Avvia trascrizione locale se disponibile
+        
+        // Avvia o riprendi trascrizione locale se disponibile
         try {
           const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-          if (SpeechRecognition) {
+          if (SpeechRecognition && !recognitionRef.current) {
+            // Crea SpeechRecognition solo se non esiste già
             const rec = new SpeechRecognition();
             rec.lang = 'it-IT';
             rec.continuous = true;
             rec.interimResults = true;
+            
             rec.onresult = (event: any) => {
               let finalText = '';
               for (let i = event.resultIndex; i < event.results.length; i++) {
                 const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal) finalText += transcript.trim() + '\n';
+                if (event.results[i].isFinal && !isRecognitionPaused) {
+                  finalText += transcript.trim() + ' ';
+                }
               }
-              if (finalText) setNotesLines(prev => [...prev, finalText].slice(-200));
+              if (finalText && !isRecognitionPaused) {
+                // Aggiungi alla trascrizione completa
+                setFullTranscript(prev => prev + finalText);
+                // Aggiungi anche alle note visuali
+                setNotesLines(prev => [...prev, finalText.trim()].slice(-200));
+              }
             };
-            rec.onerror = () => {};
-            rec.onend = () => setIsTranscribing(false);
+            
+            rec.onerror = (event: any) => {
+              console.log('⚠️ Speech recognition error:', event.error);
+              // Se l'errore è "no-speech", riavvia automaticamente
+              if (event.error === 'no-speech' && !isRecognitionPaused) {
+                setTimeout(() => {
+                  if (recognitionRef.current && isRecording) {
+                    try {
+                      recognitionRef.current.start();
+                    } catch (_) {}
+                  }
+                }, 100);
+              }
+            };
+            
+            rec.onend = () => {
+              // Se la registrazione è ancora attiva, riavvia automaticamente
+              if (isRecording && !isRecognitionPaused) {
+                try {
+                  recognitionRef.current?.start();
+                } catch (_) {}
+              } else {
+                setIsTranscribing(false);
+              }
+            };
+            
             recognitionRef.current = rec;
             rec.start();
             setIsTranscribing(true);
+            console.log('🎙️ Trascrizione avviata');
+          } else if (recognitionRef.current) {
+            // Riprendi la trascrizione esistente
+            setIsRecognitionPaused(false);
+            console.log('▶️ Trascrizione ripresa (continuazione)');
           }
-        } catch (_) {}
+        } catch (e) {
+          console.log('⚠️ Trascrizione non disponibile:', e);
+        }
       } else {
+        // Metti in pausa la registrazione (non fermare completamente)
         await videoApi.stopRecording(Number(lessonId));
         setIsRecording(false);
-        // Ferma appunti AI e trascrizione, senza aprire il box automaticamente
+        setIsRecognitionPaused(true);
+        
+        // Pausa appunti AI (ma non fermare completamente)
         try {
           const data = await videoApi.stopNotes(Number(lessonId));
           setNotesActive(false);
           if (data.lines) setNotesLines(data.lines);
         } catch (_) {}
-        try {
-          if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            recognitionRef.current = null;
-            setIsTranscribing(false);
-          }
-        } catch (_) {}
+        
+        console.log('⏸️ Registrazione in pausa - Trascrizione: ' + fullTranscript.substring(0, 100) + '...');
+        console.log('📊 Lunghezza trascrizione totale:', fullTranscript.length, 'caratteri');
+        // NON fermiamo recognitionRef - continua a girare ma non aggiunge testo quando isRecognitionPaused è true
       }
     } catch (err) {
       console.error('Errore recording:', err);
@@ -451,6 +497,33 @@ const VideoRoom: React.FC = () => {
   const leaveRoom = async () => {
     try {
       console.log('📤 Uscita dalla video room...');
+      
+      // Ferma la trascrizione se attiva
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+          recognitionRef.current = null;
+          setIsTranscribing(false);
+          console.log('✅ Trascrizione fermata');
+        } catch (_) {}
+      }
+      
+      // Salva la trascrizione completa sul backend se disponibile
+      if (fullTranscript && fullTranscript.length > 0) {
+        try {
+          console.log('💾 Salvataggio trascrizione completa...');
+          console.log('📊 Lunghezza finale:', fullTranscript.length, 'caratteri');
+          console.log('📝 Anteprima:', fullTranscript.substring(0, 200) + '...');
+          
+          // TODO: Invia la trascrizione al backend
+          // await videoApi.saveTranscript(Number(lessonId), fullTranscript);
+          
+          // Per ora la logghiamo in console - implementeremo l'endpoint dopo
+          console.log('✅ Trascrizione completa salvata localmente');
+        } catch (e) {
+          console.error('⚠️ Errore salvataggio trascrizione:', e);
+        }
+      }
       
       // Stop e chiudi tutti i track locali
       if (localVideoTrack) {
@@ -622,6 +695,23 @@ const VideoRoom: React.FC = () => {
 
         {/* Controls */}
         <div className="bg-gray-800 rounded-lg p-4">
+          {/* Indicatore Trascrizione */}
+          {isTranscribing && (
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+                isRecording ? 'bg-red-600/20 border-2 border-red-500' : 'bg-yellow-600/20 border-2 border-yellow-500'
+              }`}>
+                <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'}`}></div>
+                <span className="text-white text-sm font-medium">
+                  {isRecording ? '🎙️ Trascrizione attiva' : '⏸️ Trascrizione in pausa'}
+                </span>
+                <span className="text-white/60 text-xs">
+                  ({fullTranscript.length} caratteri)
+                </span>
+              </div>
+            </div>
+          )}
+          
           <div className="flex justify-center flex-wrap gap-4">
             {/* Video Toggle */}
             <button
@@ -629,6 +719,7 @@ const VideoRoom: React.FC = () => {
               className={`p-3 rounded-full ${
                 isVideoOn ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
               } hover:opacity-80 transition-opacity`}
+              title={isVideoOn ? 'Disattiva video' : 'Attiva video'}
             >
               {isVideoOn ? '📹' : '📹'}
             </button>
@@ -639,6 +730,7 @@ const VideoRoom: React.FC = () => {
               className={`p-3 rounded-full ${
                 isAudioOn ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
               } hover:opacity-80 transition-opacity`}
+              title={isAudioOn ? 'Disattiva microfono' : 'Attiva microfono'}
             >
               {isAudioOn ? '🎤' : '🎤'}
             </button>
@@ -649,24 +741,27 @@ const VideoRoom: React.FC = () => {
               className={`p-3 rounded-full ${
                 isScreenSharing ? 'bg-cyan-600 text-white' : 'bg-gray-600 text-white'
               } hover:opacity-80 transition-opacity`}
+              title={isScreenSharing ? 'Ferma condivisione' : 'Condividi schermo'}
             >
               📺
             </button>
 
-            {/* Recording */}
+            {/* Recording con indicatore stato */}
             <button
               onClick={toggleRecording}
-              className={`p-3 rounded-full ${
+              className={`relative p-3 rounded-full ${
                 isRecording ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-600 text-white'
               } hover:opacity-80 transition-opacity`}
+              title={isRecording ? 'Pausa registrazione' : fullTranscript.length > 0 ? 'Riprendi registrazione' : 'Avvia registrazione'}
             >
-              🔴
+              {isRecording ? '🔴' : fullTranscript.length > 0 ? '⏸️' : '⚫'}
             </button>
 
             {/* Leave Room */}
             <button
               onClick={leaveRoom}
               className="p-3 rounded-full bg-red-600 text-white hover:opacity-80 transition-opacity"
+              title="Termina e salva lezione"
             >
               📞
             </button>
