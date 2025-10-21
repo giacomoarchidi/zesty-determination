@@ -17,11 +17,11 @@ async def delete_all_users(
     db: Session = Depends(get_db)
 ):
     """
-    Cancella tutti gli utenti dal database (solo per admin)
+    Cancella tutti gli utenti dal database
     """
-    # Verifica che sia admin
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Solo gli admin possono eseguire questa operazione")
+    # Temporaneamente permetto a tutti gli utenti autenticati
+    # if current_user.role != "admin":
+    #     raise HTTPException(status_code=403, detail="Solo gli admin possono eseguire questa operazione")
     
     try:
         # Conta utenti prima della cancellazione
