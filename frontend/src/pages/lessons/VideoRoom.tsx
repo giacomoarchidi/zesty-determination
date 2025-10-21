@@ -141,6 +141,15 @@ const VideoRoom: React.FC = () => {
       const token = localStorage.getItem('access_token');
       console.log('🔍 Check token:', { hasToken: !!token, token: token?.substring(0, 20) + '...' });
       
+      // Pulisci token invalidi (stringa "undefined", "null", troppo corti)
+      if (token === 'undefined' || token === 'null' || (token && token.length < 20)) {
+        console.log('🧹 Token invalido rilevato, pulisco localStorage');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('current_user_role');
+        navigate('/login');
+        return;
+      }
+      
       if (!token) {
         console.log('❌ Nessun token trovato - Redirect al login');
         navigate('/login');
