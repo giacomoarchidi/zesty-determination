@@ -123,8 +123,12 @@ def get_tutor_assignments(
     db: Session = Depends(get_db)
 ):
     """Ottiene i compiti assegnati da un tutor"""
+    print(f"🔍 [DEBUG] get_tutor_assignments chiamato per user_id: {current_user.id}")
     assignment_service = AssignmentService(db)
     assignments = assignment_service.get_assignments_for_tutor(current_user.id)
+    print(f"🔍 [DEBUG] Trovati {len(assignments)} compiti per tutor {current_user.id}")
+    for assignment in assignments:
+        print(f"🔍 [DEBUG] Compito {assignment.id}: tutor_id={assignment.tutor_id}, student_id={assignment.student_id}, title={assignment.title}")
     
     result = []
     for assignment in assignments:

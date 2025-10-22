@@ -145,9 +145,16 @@ const TutorDashboard: React.FC = () => {
           console.log('📡 Chiamata API: /assignments/tutor');
           const assignmentsData = await tutorApi.getAssignments();
           console.log('✅ Compiti caricati:', assignmentsData);
+          console.log('📊 Numero compiti ricevuti:', assignmentsData?.length || 0);
+          console.log('🔍 Dettagli compiti:', JSON.stringify(assignmentsData, null, 2));
+          
+          // ALERT PER DEBUG IMMEDIATO
+          alert(`🔍 DEBUG COMPITI TUTOR:\n\nNumero compiti: ${assignmentsData?.length || 0}\nDati: ${JSON.stringify(assignmentsData, null, 2)}`);
+          
           setAssignments(assignmentsData);
         } catch (error) {
           console.error('❌ Errore caricamento compiti:', error);
+          console.error('❌ Dettagli errore:', error);
           setAssignments([]);
         }
         
