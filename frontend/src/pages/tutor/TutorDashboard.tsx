@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { availabilityApi } from '../../api/availability';
 import type { AvailabilitySlot } from '../../api/availability';
 import { tutorApi } from '../../api/tutor';
@@ -26,6 +26,7 @@ interface Availability {
 }
 
 const TutorDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [upcomingLessons, setUpcomingLessons] = useState<Lesson[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,27 @@ const TutorDashboard: React.FC = () => {
   const [assignments, setAssignments] = useState<TutorAssignment[]>([]);
 
   const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // CONTROLLO AUTENTICAZIONE
+  useEffect(() => {
+    console.log('🔍 TutorDashboard - User:', user);
+    console.log('🔍 TutorDashboard - IsAuthenticated:', isAuthenticated);
+    
+    if (!isAuthenticated || !user) {
+      console.log('❌ TutorDashboard - User not authenticated, redirecting to home');
+      navigate('/', { replace: true });
+      return;
+    }
+    
+    if (user.role !== 'tutor') {
+      console.log('❌ TutorDashboard - User is not a tutor, redirecting to home');
+      navigate('/', { replace: true });
+      return;
+    }
+    
+    console.log('✅ TutorDashboard - User authenticated and is tutor');
+  }, [user, isAuthenticated, navigate]);
   const greetingName = (() => {
     if (!user) return 'Tutor';
     return user.first_name || user.email?.split('@')[0] || 'Tutor';
