@@ -43,9 +43,7 @@ const TutorDashboard: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const greetingName = (() => {
     if (!user) return 'Tutor';
-    const email = user.email?.toLowerCase() || '';
-    if (email === 'giac.archi3@gmail.com') return 'Giacomo';
-    return user.first_name || 'Tutor';
+    return user.first_name || user.email?.split('@')[0] || 'Tutor';
   })();
 
   const weekdays = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];

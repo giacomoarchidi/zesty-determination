@@ -60,10 +60,7 @@ const StudentDashboard: React.FC = () => {
   const [selectedNotes, setSelectedNotes] = useState<{lesson: Lesson, notes: string} | null>(null);
   const greetingName = (() => {
     if (!user) return 'Utente';
-    const email = user.email?.toLowerCase() || '';
-    if (email === 'giac.archi3@gmail.com') return 'Giacomo';
-    if (user.role === 'student' && email.includes('studente.d')) return 'Tiziano';
-    return user.first_name || 'Utente';
+    return user.first_name || user.email?.split('@')[0] || 'Utente';
   })();
 
   const loadData = async () => {
