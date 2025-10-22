@@ -285,12 +285,28 @@ const VideoRoom: React.FC = () => {
         });
 
         // Join channel
+        console.log('🔍 [AGORA DEBUG] Dati join room:', {
+          app_id: joinData.app_id,
+          channel: joinData.channel,
+          uid: joinData.uid,
+          token: joinData.token?.substring(0, 20) + '...',
+          lessonId: lessonId,
+          userRole: user?.role,
+          userEmail: user?.email
+        });
+        
         await agoraClient.join(
           joinData.app_id,
           joinData.channel,
           joinData.token,
           joinData.uid
         );
+        
+        console.log('✅ [AGORA DEBUG] JOIN COMPLETATO:', {
+          channel: joinData.channel,
+          uid: joinData.uid,
+          userRole: user?.role
+        });
 
         // Publish local tracks
         await agoraClient.publish([audioTrack, videoTrack]);
@@ -429,6 +445,13 @@ const VideoRoom: React.FC = () => {
 
   // Event handlers
   const handleUserPublished = async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
+    console.log('🔍 [AGORA DEBUG] Utente connesso:', {
+      uid: user.uid,
+      mediaType: mediaType,
+      channel: joinData?.channel,
+      currentUserRole: user?.role
+    });
+    
     await client?.subscribe(user, mediaType);
     
     if (mediaType === 'video' && user.videoTrack) {
@@ -436,20 +459,33 @@ const VideoRoom: React.FC = () => {
       if (remoteVideoRef.current) {
         user.videoTrack.play(remoteVideoRef.current);
       }
+      console.log('✅ [AGORA DEBUG] Video remoto riprodotto per UID:', user.uid);
     }
     
     if (mediaType === 'audio' && user.audioTrack) {
       user.audioTrack.play();
+      console.log('✅ [AGORA DEBUG] Audio remoto riprodotto per UID:', user.uid);
     }
   };
 
   const handleUserUnpublished = (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
+    console.log('🔍 [AGORA DEBUG] Utente disconnesso (unpublished):', {
+      uid: user.uid,
+      mediaType: mediaType,
+      channel: joinData?.channel
+    });
+    
     if (mediaType === 'video') {
       setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
     }
   };
 
   const handleUserLeft = (user: IAgoraRTCRemoteUser) => {
+    console.log('🔍 [AGORA DEBUG] Utente uscito completamente:', {
+      uid: user.uid,
+      channel: joinData?.channel
+    });
+    
     setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
   };
 
