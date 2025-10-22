@@ -79,6 +79,20 @@ const HomePage: React.FC = () => {
       setIsAuthenticated(true);
       console.log('✅ useAuthStore aggiornato');
       
+      // FORZA IL RESET COMPLETO DELLO STORE
+      console.log('🔄 Forcing complete store reset...');
+      localStorage.setItem('auth-storage', JSON.stringify({
+        state: {
+          user: userProfile,
+          token: response.access_token,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+        },
+        version: 0
+      }));
+      console.log('✅ Store reset completed');
+      
       // Converti il ruolo in stringa per essere sicuri
       const roleStr = String(userProfile.role).toLowerCase();
       console.log('✅ Role as string:', roleStr);
