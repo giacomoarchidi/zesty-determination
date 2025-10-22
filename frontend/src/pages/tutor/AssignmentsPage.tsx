@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { tutorApi } from '../../api/tutor';
-import { assignmentApi, AssignmentResponse } from '../../api/assignment';
+import { assignmentApi } from '../../api/assignment';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 
