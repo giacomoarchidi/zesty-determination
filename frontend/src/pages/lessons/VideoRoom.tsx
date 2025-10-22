@@ -285,28 +285,12 @@ const VideoRoom: React.FC = () => {
         });
 
         // Join channel
-        console.log('🔍 [AGORA DEBUG] Dati join room:', {
-          app_id: joinData.app_id,
-          channel: joinData.channel,
-          uid: joinData.uid,
-          token: joinData.token?.substring(0, 20) + '...',
-          lessonId: lessonId,
-          userRole: user?.role,
-          userEmail: user?.email
-        });
-        
         await agoraClient.join(
           joinData.app_id,
           joinData.channel,
           joinData.token,
           joinData.uid
         );
-        
-        console.log('✅ [AGORA DEBUG] JOIN COMPLETATO:', {
-          channel: joinData.channel,
-          uid: joinData.uid,
-          userRole: user?.role
-        });
 
         // Publish local tracks
         await agoraClient.publish([audioTrack, videoTrack]);
