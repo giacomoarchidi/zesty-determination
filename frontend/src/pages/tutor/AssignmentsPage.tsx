@@ -510,7 +510,17 @@ const AssignmentsPage: React.FC = () => {
                         <option key={s.id} value={s.id}>{s.name} • {s.grade}</option>
                       ))}
                     </select>
-                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-white/70 mb-2">Data di scadenza</label>
+                    <input
+                      type="date"
+                      value={newAssignment.dueDate}
+                      onChange={(e) => setNewAssignment(prev => ({ ...prev, dueDate: e.target.value }))}
+                      className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
                 </div>
 
                 {/* Anteprima Compito generata dall'AI */}
