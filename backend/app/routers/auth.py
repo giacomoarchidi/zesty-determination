@@ -32,6 +32,24 @@ def debug_users(db: Session = Depends(get_db)):
         ]
     }
 
+# TEMPORANEO - ENDPOINT PER AGGIORNARE PASSWORD
+@router.post("/update-password")
+def update_password(email: str, new_password: str, db: Session = Depends(get_db)):
+    """Aggiorna la password di un utente"""
+    from app.services.auth_service import AuthService
+    
+    auth_service = AuthService(db)
+    user = db.query(User).filter(User.email == email).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    
+    # Aggiorna la password
+    user.hashed_password = auth_service.get_password_hash(new_password)
+    db.commit()
+    
+    return {"message": f"Password aggiornata per {email}"}
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """Register a new user"""
