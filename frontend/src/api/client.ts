@@ -38,10 +38,13 @@ apiClient.interceptors.response.use(
     
     if (error.response && error.response.status === 401) {
       // Token expired or invalid
+      console.log('🔑 Token scaduto o non valido, pulizia e redirect al login');
       localStorage.removeItem('access_token');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      localStorage.removeItem('current_user_role');
+      // Usa window.location per forzare il redirect
+      window.location.href = '/';
     }
     
     // Don't reject on network errors to prevent white page
