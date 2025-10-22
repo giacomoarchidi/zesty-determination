@@ -23,9 +23,10 @@ def debug_users(db: Session = Depends(get_db)):
                 "id": user.id,
                 "email": user.email,
                 "role": user.role.value if user.role else None,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "is_active": user.is_active
+                "is_active": user.is_active,
+                "has_student_profile": user.student_profile is not None,
+                "has_tutor_profile": user.tutor_profile is not None,
+                "has_parent_profile": user.parent_profile is not None
             }
             for user in users
         ]
