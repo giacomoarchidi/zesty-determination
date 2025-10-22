@@ -117,8 +117,19 @@ const HomePage: React.FC = () => {
       console.log('🔄 USING REACT ROUTER NAVIGATE');
       
       // Usa React Router per il redirect
+      console.log('🔄 NAVIGATING TO:', redirectPath);
       navigate(redirectPath, { replace: true });
       console.log('✅ React Router navigate executed');
+      
+      // Verifica che il redirect sia avvenuto
+      setTimeout(() => {
+        console.log('🔍 CURRENT PATH AFTER REDIRECT:', window.location.pathname);
+        if (window.location.pathname === '/') {
+          console.log('❌ REDIRECT FAILED - STILL ON HOMEPAGE');
+          // Forza il redirect manualmente
+          window.location.href = redirectPath;
+        }
+      }, 1000);
     } catch (err: any) {
       console.error('❌ Login error:', err);
       console.error('❌ Error response:', err.response);
