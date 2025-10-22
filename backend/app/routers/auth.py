@@ -8,6 +8,25 @@ from app.services.auth_service import AuthService
 
 router = APIRouter()
 
+# TEMPORANEO - DEBUG ENDPOINT
+@router.get("/debug-users")
+def debug_users(db: Session = Depends(get_db)):
+    """Debug endpoint per vedere tutti gli utenti nel database"""
+    users = db.query(User).all()
+    return {
+        "total_users": len(users),
+        "users": [
+            {
+                "id": user.id,
+                "email": user.email,
+                "role": user.role.value if user.role else None,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "is_active": user.is_active
+            }
+            for user in users
+        ]
+    }
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
