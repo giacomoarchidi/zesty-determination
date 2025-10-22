@@ -103,9 +103,24 @@ class AuthService:
 
     def login_user(self, login_data: UserLogin) -> Token:
         """Autentica un utente e restituisce un token"""
+        print(f"🔍 [DEBUG] Tentativo login per email: {login_data.email}")
         user = self.db.query(User).filter(User.email == login_data.email).first()
         
-        if not user or not self.verify_password(login_data.password, user.hashed_password):
+        if not user:
+            print(f"❌ [DEBUG] Utente non trovato per email: {login_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credenziali non valide"
+            )
+        
+        print(f"✅ [DEBUG] Utente trovato: {user.email}, ID: {user.id}, Attivo: {user.is_active}")
+        print(f"🔍 [DEBUG] Password hash nel DB: {user.hashed_password[:50]}...")
+        
+        password_valid = self.verify_password(login_data.password, user.hashed_password)
+        print(f"🔍 [DEBUG] Password valida: {password_valid}")
+        
+        if not password_valid:
+            print(f"❌ [DEBUG] Password non valida per utente: {user.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credenziali non valide"
