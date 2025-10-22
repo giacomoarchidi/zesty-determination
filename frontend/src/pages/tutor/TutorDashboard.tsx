@@ -36,6 +36,7 @@ const TutorDashboard: React.FC = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [hourlyRate, setHourlyRate] = useState<number>(25); // Default fallback
 
   const user = useAuthStore((s) => s.user);
   const greetingName = (() => {
@@ -101,6 +102,14 @@ const TutorDashboard: React.FC = () => {
     try {
       setLoading(true);
       console.log('🔵 Caricamento dati dashboard tutor...');
+      
+      // Carica il prezzo orario dal profilo utente
+      if (user?.hourly_rate) {
+        setHourlyRate(user.hourly_rate);
+        console.log('✅ Prezzo orario caricato dal profilo:', user.hourly_rate);
+      } else {
+        console.log('⚠️ Prezzo orario non trovato nel profilo, uso default €25');
+      }
       
       // Carica lezioni dal backend
       try {
@@ -418,7 +427,7 @@ const TutorDashboard: React.FC = () => {
                   </div>
               <div>
                 <p className="text-white/70 text-sm font-medium">Tariffa Oraria</p>
-                <p className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors duration-300">€25</p>
+                <p className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors duration-300">€{hourlyRate}</p>
               </div>
             </div>
           </div>
