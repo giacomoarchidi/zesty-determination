@@ -65,6 +65,9 @@ const HomePage: React.FC = () => {
         timestamp: new Date().toISOString()
       });
       
+      // ALERT PER DEBUG - RIMUOVERE DOPO IL TEST
+      alert(`🔍 DEBUG LOGIN:\nEmail: ${userProfile.email}\nRole: ${userProfile.role}\nRoleStr: ${roleStr}`);
+      
       // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
       console.log('🔄 REDIRECT START - Role:', roleStr);
       
