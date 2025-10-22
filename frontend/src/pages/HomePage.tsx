@@ -16,6 +16,9 @@ const HomePage: React.FC = () => {
     setError('');
     setLoading(true);
 
+    // ALERT IMMEDIATO PER DEBUG
+    alert(`🔍 DEBUG LOGIN: Tentativo con email: ${loginData.email}, password: ${loginData.password ? '***' : 'EMPTY'}`);
+
     try {
       console.log('🔵 Starting login...');
       console.log('🔍 LOGIN DATA SENT:', {
@@ -26,6 +29,9 @@ const HomePage: React.FC = () => {
       
       const response = await authApi.login(loginData);
       console.log('✅ Login response:', response);
+      
+      // ALERT PER CONFERMA LOGIN
+      alert(`✅ LOGIN SUCCESS: Token ricevuto!`);
       
       // Controlla se la risposta è valida
       if (!response || !response.access_token) {
@@ -94,7 +100,8 @@ const HomePage: React.FC = () => {
       const errorMsg = err.response?.data?.detail || err.message || 'Errore durante il login';
       setError(errorMsg);
       
-      // Log dell'errore senza alert
+      // ALERT PER ERRORE
+      alert(`❌ LOGIN ERROR: ${errorMsg}`);
       console.error('❌ ERRORE LOGIN:', errorMsg);
     } finally {
       setLoading(false);
