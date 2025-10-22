@@ -42,9 +42,15 @@ const HomePage: React.FC = () => {
       
       const response = await authApi.login(loginData);
       console.log('✅ Login response:', response);
+      console.log('🔍 Response details:', {
+        hasAccessToken: !!response?.access_token,
+        tokenType: response?.token_type,
+        expiresIn: response?.expires_in
+      });
       
       // Controlla se la risposta è valida
       if (!response || !response.access_token) {
+        console.error('❌ Invalid login response:', response);
         throw new Error('Risposta di login non valida');
       }
       
