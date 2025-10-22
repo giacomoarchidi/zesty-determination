@@ -1,0 +1,32 @@
+services:
+  # Backend FastAPI
+  - type: web
+    name: ai-tutor-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENV
+        value: prod
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-tutor-db
+          property: connectionString
+      - key: FRONTEND_URL
+        value: https://ai-tutor-platform-iota.vercel.app
+      - key: CORS_ORIGINS
+        value: https://ai-tutor-platform-iota.vercel.app
+      - key: AGORA_APP_ID
+        value: 4d3c5454d08847ed9536332dad1b6759
+      - key: AGORA_APP_CERTIFICATE
+        value: 5c6993d86ecc434682beb8873b3ae5c8
+
+databases:
+  - name: ai-tutor-db
+    databaseName: aitutor
+    user: aitutor
+    plan: free
