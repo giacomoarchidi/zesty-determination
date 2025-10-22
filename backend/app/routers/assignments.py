@@ -124,11 +124,29 @@ def get_tutor_assignments(
 ):
     """Ottiene i compiti assegnati da un tutor"""
     print(f"🔍 [DEBUG] get_tutor_assignments chiamato per user_id: {current_user.id}")
+    print(f"🔍 [DEBUG] Email utente: {current_user.email}")
+    print(f"🔍 [DEBUG] Ruolo utente: {current_user.role}")
+    
+    # Verifica se esiste un profilo tutor
+    from app.models.user import TutorProfile
+    tutor_profile = db.query(TutorProfile).filter(TutorProfile.user_id == current_user.id).first()
+    if tutor_profile:
+        print(f"🔍 [DEBUG] Profilo tutor trovato: id={tutor_profile.id}, user_id={tutor_profile.user_id}")
+    else:
+        print(f"🔍 [DEBUG] ❌ Nessun profilo tutor trovato per user_id={current_user.id}")
+    
     assignment_service = AssignmentService(db)
     assignments = assignment_service.get_assignments_for_tutor(current_user.id)
     print(f"🔍 [DEBUG] Trovati {len(assignments)} compiti per tutor {current_user.id}")
+    
+    # Mostra tutti i compiti nel database per debug
+    all_assignments = db.query(Assignment).all()
+    print(f"🔍 [DEBUG] Totale compiti nel database: {len(all_assignments)}")
+    for assignment in all_assignments:
+        print(f"🔍 [DEBUG] Compito DB {assignment.id}: tutor_id={assignment.tutor_id}, student_id={assignment.student_id}, title={assignment.title}")
+    
     for assignment in assignments:
-        print(f"🔍 [DEBUG] Compito {assignment.id}: tutor_id={assignment.tutor_id}, student_id={assignment.student_id}, title={assignment.title}")
+        print(f"🔍 [DEBUG] Compito filtrato {assignment.id}: tutor_id={assignment.tutor_id}, student_id={assignment.student_id}, title={assignment.title}")
     
     result = []
     for assignment in assignments:
