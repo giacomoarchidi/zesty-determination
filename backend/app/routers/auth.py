@@ -12,8 +12,11 @@ router = APIRouter()
 @router.get("/debug-users")
 def debug_users(db: Session = Depends(get_db)):
     """Debug endpoint per vedere tutti gli utenti nel database"""
+    from app.core.config import settings
+    
     users = db.query(User).all()
     return {
+        "database_url": settings.get_database_url(),
         "total_users": len(users),
         "users": [
             {
