@@ -62,7 +62,7 @@ const AssignmentsPage: React.FC = () => {
     title: '',
     subject: 'Matematica',
     description: '',
-    dueDate: '',
+    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 giorni da oggi
     difficulty: 'medium',
     points: 10,
     status: 'published'
@@ -75,6 +75,36 @@ const AssignmentsPage: React.FC = () => {
   const [expandPreview, setExpandPreview] = useState(false);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  // Carica i compiti esistenti all'avvio
+  useEffect(() => {
+    const loadAssignments = async () => {
+      try {
+        console.log('📝 Caricamento compiti esistenti...');
+        const existingAssignments = await assignmentApi.getTutorAssignments();
+        console.log('✅ Compiti esistenti caricati:', existingAssignments);
+        
+        // Converti i compiti dal backend al formato locale
+        const localAssignments: Assignment[] = existingAssignments.map(assignment => ({
+          id: assignment.id.toString(),
+          title: assignment.title,
+          subject: assignment.subject,
+          description: assignment.description,
+          dueDate: assignment.due_date,
+          difficulty: 'medium' as const,
+          points: assignment.points,
+          status: assignment.is_published ? 'published' as const : 'draft' as const
+        }));
+        
+        setAssignments(localAssignments);
+        console.log('✅ Compiti convertiti e impostati:', localAssignments);
+      } catch (error) {
+        console.error('❌ Errore nel caricamento compiti:', error);
+      }
+    };
+
+    loadAssignments();
+  }, []);
 
   useEffect(() => {
     if (!selectedStudent && students.length > 0) {
