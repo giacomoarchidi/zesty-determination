@@ -80,16 +80,15 @@ const HomePage: React.FC = () => {
         timestamp: new Date().toISOString()
       });
       
-      // ALERT PER DEBUG - RIMUOVERE DOPO IL TEST
-      alert(`🔍 DEBUG LOGIN:\nEmail inserita: ${loginData.email}\nEmail ricevuta: ${userProfile.email}\nRole: ${userProfile.role}\nRoleStr: ${roleStr}`);
+      // LOGGING SEMPLIFICATO
+      console.log('🔍 LOGIN SUCCESS:', {
+        email: userProfile.email,
+        role: userProfile.role,
+        roleStr: roleStr
+      });
       
-      // TEMPORANEAMENTE DISABILITATO - Verifica che l'email corrisponda
-      // if (loginData.email.toLowerCase() !== userProfile.email.toLowerCase()) {
-      //   alert(`⚠️ ERRORE: Email non corrisponde!\nInserita: ${loginData.email}\nRicevuta: ${userProfile.email}\n\nProbabilmente l'autocomplete ha inserito credenziali sbagliate.\n\nRiprova digitando manualmente le credenziali.`);
-      //   setError('Email non corrisponde. Digita manualmente le credenziali.');
-      //   setLoading(false);
-      //   return;
-      // }
+      // ALERT SEMPLICE PER DEBUG
+      alert(`LOGIN: ${userProfile.email} - Role: ${userProfile.role} - Redirect: ${roleStr === 'tutor' ? 'TUTOR DASHBOARD' : 'STUDENT DASHBOARD'}`);
       
       // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
       console.log('🔄 REDIRECT START - Role:', roleStr);
