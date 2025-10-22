@@ -42,6 +42,15 @@ const HomePage: React.FC = () => {
       // Converti il ruolo in stringa per essere sicuri
       const roleStr = String(userProfile.role).toLowerCase();
       console.log('✅ Role as string:', roleStr);
+      console.log('🔍 DEBUG HOMEPAGE LOGIN:', {
+        email: userProfile.email,
+        role: userProfile.role,
+        roleStr: roleStr,
+        timestamp: new Date().toISOString()
+      });
+      
+      // ALERT PER DEBUG IMMEDIATO
+      alert(`🔍 DEBUG HOMEPAGE LOGIN:\n\nEmail: ${userProfile.email}\nRole: ${userProfile.role}\nRoleStr: ${roleStr}\nTimestamp: ${new Date().toISOString()}`);
       
       // Redirect in base al ruolo
       if (roleStr === 'student') {
