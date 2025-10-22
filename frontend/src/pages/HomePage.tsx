@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const [showLogin, setShowLogin] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -111,19 +112,13 @@ const HomePage: React.FC = () => {
       console.log('🔄 EXECUTING REDIRECT NOW...');
       console.log('🔄 REDIRECT TO:', redirectPath);
       
-      // Forza il redirect con replace per evitare problemi di routing
+      // REDIRECT CON REACT ROUTER
       console.log('🔄 FINAL REDIRECT TO:', redirectPath);
+      console.log('🔄 USING REACT ROUTER NAVIGATE');
       
-      // Prova diversi metodi di redirect
-      try {
-        window.location.replace(redirectPath);
-        console.log('✅ window.location.replace executed');
-      } catch (e) {
-        console.log('❌ window.location.replace failed, trying href');
-        window.location.href = redirectPath;
-      }
-      
-      console.log('🔄 REDIRECT SENT TO BROWSER');
+      // Usa React Router per il redirect
+      navigate(redirectPath, { replace: true });
+      console.log('✅ React Router navigate executed');
     } catch (err: any) {
       console.error('❌ Login error:', err);
       console.error('❌ Error response:', err.response);
