@@ -41,17 +41,17 @@ export const assignmentApi = {
   // Ottieni i compiti per tutor
   getTutorAssignments: async (): Promise<AssignmentResponse[]> => {
     console.log('📝 [AssignmentAPI] Recupero compiti tutor');
-    const response = await apiClient.get('/assignments/tutor/');
+    const response = await apiClient.get('/assignments/tutor');
     console.log('✅ [AssignmentAPI] Compiti tutor ricevuti:', response.data);
-    return response.data;
+    return response.data || [];
   },
 
   // Ottieni i compiti per studente
   getStudentAssignments: async (): Promise<AssignmentResponse[]> => {
     console.log('📝 [AssignmentAPI] Recupero compiti studente');
-    const response = await apiClient.get('/assignments/student/');
+    const response = await apiClient.get('/assignments/student');
     console.log('✅ [AssignmentAPI] Compiti studente ricevuti:', response.data);
-    return response.data;
+    return response.data || [];
   },
 
   // Ottieni un compito specifico

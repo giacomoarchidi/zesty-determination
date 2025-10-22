@@ -89,7 +89,7 @@ export const tutorApi = {
 
   // Ottieni i compiti assegnati dal tutor
   getAssignments: async (): Promise<TutorAssignment[]> => {
-    const response = await apiClient.get('/assignments/tutor/');
+    const response = await apiClient.get('/assignments/tutor');
     return response.data;
   },
 };
