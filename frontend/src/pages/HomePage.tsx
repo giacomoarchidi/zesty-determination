@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
 const HomePage: React.FC = () => {
-  const navigate = useNavigate();
   const [showLogin, setShowLogin] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
