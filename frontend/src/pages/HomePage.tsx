@@ -112,7 +112,17 @@ const HomePage: React.FC = () => {
       console.log('🔄 REDIRECT TO:', redirectPath);
       
       // Forza il redirect con replace per evitare problemi di routing
-      window.location.replace(redirectPath);
+      console.log('🔄 FINAL REDIRECT TO:', redirectPath);
+      
+      // Prova diversi metodi di redirect
+      try {
+        window.location.replace(redirectPath);
+        console.log('✅ window.location.replace executed');
+      } catch (e) {
+        console.log('❌ window.location.replace failed, trying href');
+        window.location.href = redirectPath;
+      }
+      
       console.log('🔄 REDIRECT SENT TO BROWSER');
     } catch (err: any) {
       console.error('❌ Login error:', err);
