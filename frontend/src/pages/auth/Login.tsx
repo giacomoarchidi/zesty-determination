@@ -26,9 +26,6 @@ const Login: React.FC = () => {
       console.log('✅ [Login] Dashboard path calcolato:', dashboardPath);
       console.log('➡️ [Login] Navigazione verso:', dashboardPath);
       
-      // ALERT PER DEBUG
-      alert(`🔍 DEBUG LOGIN:\n\nEmail: ${user.email}\nRole: ${user.role}\nDashboard: ${dashboardPath}`);
-      
       navigate(dashboardPath, { replace: true });
     }
   }, [isAuthenticated, user, navigate]);

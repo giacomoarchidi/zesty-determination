@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
+import { useAuthStore } from '../store/authStore';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -8,6 +9,7 @@ const HomePage: React.FC = () => {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { setUser, setToken, setIsAuthenticated } = useAuthStore();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +47,12 @@ const HomePage: React.FC = () => {
         localStorage.setItem('current_user_role', userProfile.role);
         console.log('💾 Ruolo utente salvato al login:', userProfile.role);
       }
+      
+      // Aggiorna useAuthStore per evitare conflitti
+      setUser(userProfile);
+      setToken(response.access_token);
+      setIsAuthenticated(true);
+      console.log('✅ useAuthStore aggiornato');
       
       // Converti il ruolo in stringa per essere sicuri
       const roleStr = String(userProfile.role).toLowerCase();
