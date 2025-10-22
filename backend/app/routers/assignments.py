@@ -15,25 +15,6 @@ from app.services.ai import generate_assignment_with_openai
 
 router = APIRouter()
 
-@router.get("", response_model=List[AssignmentResponse])
-@router.get("/", response_model=List[AssignmentResponse])
-def get_assignments(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Ottiene tutti i compiti per l'utente corrente"""
-    assignment_service = AssignmentService(db)
-    
-    if current_user.role == Role.tutor:
-        assignments = assignment_service.get_assignments_for_tutor(current_user.id)
-    elif current_user.role == Role.student:
-        assignments = assignment_service.get_assignments_for_student(current_user.id)
-    else:
-        assignments = []
-    
-    return assignments
-
-@router.post("", response_model=AssignmentResponse)
 @router.post("/", response_model=AssignmentResponse)
 def create_assignment(
     assignment_data: AssignmentCreate,

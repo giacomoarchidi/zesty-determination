@@ -48,7 +48,7 @@ export const studentApi = {
 
   // Ottieni i compiti dello studente (recenti)
   getAssignments: async (): Promise<StudentAssignment[]> => {
-    const response = await apiClient.get('/assignments/student');
+    const response = await apiClient.get('/assignments/student/');
     return response.data as StudentAssignment[];
   },
 };
