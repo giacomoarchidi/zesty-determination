@@ -65,39 +65,27 @@ const HomePage: React.FC = () => {
         timestamp: new Date().toISOString()
       });
       
-      // Redirect in base al ruolo - APPROCCIO SEMPLIFICATO
-      console.log('🔄 Starting redirect logic...');
+      // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
+      console.log('🔄 REDIRECT START - Role:', roleStr);
       
       // Determina il percorso di destinazione
       let redirectPath = '';
       if (roleStr === 'student') {
         redirectPath = '/student/dashboard';
-        console.log('➡️ STUDENT dashboard selected');
       } else if (roleStr === 'tutor') {
         redirectPath = '/tutor/dashboard';
-        console.log('➡️ TUTOR dashboard selected');
       } else if (roleStr === 'parent') {
         redirectPath = '/parent/dashboard';
-        console.log('➡️ PARENT dashboard selected');
       } else {
         redirectPath = '/';
-        console.log('❌ Unknown role, redirecting to home');
       }
       
-      console.log('🔄 Final redirect path:', redirectPath);
+      console.log('🔄 REDIRECT PATH:', redirectPath);
       
-      // Usa setTimeout per evitare problemi di timing
-      setTimeout(() => {
-        console.log('🔄 Executing redirect after timeout...');
-        try {
-          window.location.href = redirectPath;
-          console.log('✅ Redirect executed successfully');
-        } catch (error) {
-          console.error('❌ Redirect execution error:', error);
-          // Fallback: ricarica la pagina
-          window.location.reload();
-        }
-      }, 100);
+      // Redirect immediato senza setTimeout
+      console.log('🔄 EXECUTING REDIRECT NOW...');
+      window.location.href = redirectPath;
+      console.log('🔄 REDIRECT SENT TO BROWSER');
     } catch (err: any) {
       console.error('❌ Login error:', err);
       console.error('❌ Error response:', err.response);
