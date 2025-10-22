@@ -295,6 +295,15 @@ const VideoRoom: React.FC = () => {
           userEmail: user?.email
         });
         alert(`🚨🚨🚨 AGORA DEBUG 🚨🚨🚨\nChannel: ${joinData.channel}\nUID: ${joinData.uid}\nLesson: ${lessonId}\nRole: ${user?.role}\nTimestamp: ${Date.now()}`);
+        console.log('🚨🚨🚨 [AGORA DEBUG] Dati join room:', {
+          app_id: joinData.app_id,
+          channel: joinData.channel,
+          uid: joinData.uid,
+          token: joinData.token?.substring(0, 20) + '...',
+          lessonId: lessonId,
+          userRole: user?.role,
+          userEmail: user?.email
+        });
         
         await agoraClient.join(
           joinData.app_id,
@@ -1323,3 +1332,4 @@ export default VideoRoom;
 // Force cache bust Wed Oct 22 11:51:33 EEST 2025
 // CACHE BUST 1761123497
 // CACHE BUST 1761123857909132000
+// CACHE BUST 1761124320017081000
