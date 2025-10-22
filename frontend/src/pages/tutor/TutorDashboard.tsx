@@ -670,24 +670,61 @@ const TutorDashboard: React.FC = () => {
               </svg>
               Compiti Assegnati
             </h2>
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                      </div>
-              <h3 className="text-lg font-medium text-white mb-2">Nessun compito assegnato</h3>
-              <p className="text-white/50 mb-6">Inizia assegnando compiti ai tuoi studenti</p>
-                          <Link
-                to="/tutor/assignments" 
-                className="group inline-flex items-center bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 transition-all duration-300"
-                          >
-                <span>Assegna Compito</span>
-                <svg className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                          </Link>
-                      </div>
+            {assignments.length > 0 ? (
+              <div className="space-y-4">
+                {assignments.slice(0, 3).map((assignment) => (
+                  <div key={assignment.id} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <h4 className="text-white font-semibold mb-2">{assignment.title}</h4>
+                    <p className="text-white/70 text-sm mb-2">per {assignment.student_name}</p>
+                    <p className="text-white/60 text-sm mb-2">{assignment.subject}</p>
+                    <div className="flex items-center justify-between text-sm text-white/60">
+                      <span>📅 {new Date(assignment.due_date).toLocaleDateString('it-IT')}</span>
+                      <span>🎯 {assignment.points} punti</span>
+                    </div>
+                    <div className="mt-2">
+                      {assignment.has_submission ? (
+                        <span className="inline-flex items-center px-2 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full text-xs">
+                          ✅ Consegnato
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full text-xs">
+                          ⏳ In attesa
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {assignments.length > 3 && (
+                  <div className="text-center pt-2">
+                    <Link 
+                      to="/tutor/assignments"
+                      className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+                    >
+                      Vedi tutti i compiti ({assignments.length})
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-white mb-2">Nessun compito assegnato</h3>
+                <p className="text-white/50 mb-6">Inizia assegnando compiti ai tuoi studenti</p>
+                <Link
+                  to="/tutor/assignments" 
+                  className="group inline-flex items-center bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 transition-all duration-300"
+                >
+                  <span>Assegna Compito</span>
+                  <svg className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </Link>
+              </div>
+            )}
                     </div>
 
           <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl p-8">
