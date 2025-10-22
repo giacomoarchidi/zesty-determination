@@ -139,14 +139,10 @@ def get_tutor_assignments(
     assignments = assignment_service.get_assignments_for_tutor(current_user.id)
     print(f"🔍 [DEBUG] Trovati {len(assignments)} compiti per tutor {current_user.id}")
     
-    # Mostra tutti i compiti nel database per debug
-    all_assignments = db.query(Assignment).all()
-    print(f"🔍 [DEBUG] Totale compiti nel database: {len(all_assignments)}")
-    for assignment in all_assignments:
-        print(f"🔍 [DEBUG] Compito DB {assignment.id}: tutor_id={assignment.tutor_id}, student_id={assignment.student_id}, title={assignment.title}")
-    
+    # Debug semplificato
+    print(f"🔍 [DEBUG] Totale compiti nel database: {len(assignments)}")
     for assignment in assignments:
-        print(f"🔍 [DEBUG] Compito filtrato {assignment.id}: tutor_id={assignment.tutor_id}, student_id={assignment.student_id}, title={assignment.title}")
+        print(f"🔍 [DEBUG] Compito {assignment.id}: {assignment.title}")
     
     result = []
     for assignment in assignments:

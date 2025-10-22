@@ -274,8 +274,21 @@ const AssignmentsPage: React.FC = () => {
       return;
     }
 
+    // Validazione data
+    if (!newAssignment.dueDate) {
+      alert('Seleziona una data di scadenza');
+      return;
+    }
+
     try {
       console.log('📝 Creazione compito...');
+      
+      // Valida la data
+      const dueDate = new Date(newAssignment.dueDate!);
+      if (isNaN(dueDate.getTime())) {
+        alert('Data di scadenza non valida');
+        return;
+      }
       
       // Prepara i dati per l'API
       const assignmentData: AssignmentCreateData = {
@@ -283,7 +296,7 @@ const AssignmentsPage: React.FC = () => {
         description: newAssignment.description!,
         instructions: newAssignment.description!, // Usa la descrizione come istruzioni per ora
         subject: newAssignment.subject!,
-        due_date: new Date(newAssignment.dueDate!).toISOString(),
+        due_date: dueDate.toISOString(),
         points: newAssignment.points!,
         is_published: true,
         student_id: parseInt(selectedStudent.id)
