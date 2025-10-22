@@ -15,6 +15,7 @@ from app.services.ai import generate_assignment_with_openai
 
 router = APIRouter()
 
+@router.post("", response_model=AssignmentResponse)
 @router.post("/", response_model=AssignmentResponse)
 def create_assignment(
     assignment_data: AssignmentCreate,
