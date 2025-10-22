@@ -75,13 +75,13 @@ const HomePage: React.FC = () => {
       // ALERT PER DEBUG - RIMUOVERE DOPO IL TEST
       alert(`🔍 DEBUG LOGIN:\nEmail inserita: ${loginData.email}\nEmail ricevuta: ${userProfile.email}\nRole: ${userProfile.role}\nRoleStr: ${roleStr}`);
       
-      // Verifica che l'email corrisponda
-      if (loginData.email.toLowerCase() !== userProfile.email.toLowerCase()) {
-        alert(`⚠️ ERRORE: Email non corrisponde!\nInserita: ${loginData.email}\nRicevuta: ${userProfile.email}\n\nProbabilmente l'autocomplete ha inserito credenziali sbagliate.\n\nRiprova digitando manualmente le credenziali.`);
-        setError('Email non corrisponde. Digita manualmente le credenziali.');
-        setLoading(false);
-        return;
-      }
+      // TEMPORANEAMENTE DISABILITATO - Verifica che l'email corrisponda
+      // if (loginData.email.toLowerCase() !== userProfile.email.toLowerCase()) {
+      //   alert(`⚠️ ERRORE: Email non corrisponde!\nInserita: ${loginData.email}\nRicevuta: ${userProfile.email}\n\nProbabilmente l'autocomplete ha inserito credenziali sbagliate.\n\nRiprova digitando manualmente le credenziali.`);
+      //   setError('Email non corrisponde. Digita manualmente le credenziali.');
+      //   setLoading(false);
+      //   return;
+      // }
       
       // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
       console.log('🔄 REDIRECT START - Role:', roleStr);
