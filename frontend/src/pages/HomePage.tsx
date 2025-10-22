@@ -26,11 +26,9 @@ const HomePage: React.FC = () => {
 
     // PULISCI COMPLETAMENTE IL LOCALSTORAGE PRIMA DEL LOGIN
     console.log('🧹 Pulizia localStorage prima del login...');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('current_user_role');
-    console.log('✅ localStorage pulito');
+    localStorage.clear();
+    sessionStorage.clear();
+    console.log('✅ localStorage e sessionStorage completamente puliti');
 
     try {
       console.log('🔵 Starting login...');
@@ -56,7 +54,11 @@ const HomePage: React.FC = () => {
       
       // Salva il token (CORRETTO: usa 'access_token' come authStore)
       localStorage.setItem('access_token', response.access_token);
-      console.log('✅ Token saved');
+      console.log('✅ Token saved:', response.access_token.substring(0, 20) + '...');
+      
+      // VERIFICA CHE IL TOKEN SIA STATO SALVATO
+      const savedToken = localStorage.getItem('access_token');
+      console.log('🔍 Token verification:', savedToken ? 'SAVED' : 'NOT SAVED');
       
       // Ottieni il profilo utente
       console.log('🔵 Fetching user profile...');
