@@ -120,6 +120,13 @@ const HomePage: React.FC = () => {
                   setShowLogin(true);
                   // Pulisci i dati di login per evitare autocomplete
                   setLoginData({ email: '', password: '' });
+                  // Forza il focus sui campi per evitare autocomplete
+                  setTimeout(() => {
+                    const emailInput = document.querySelector('input[name="login-email"]') as HTMLInputElement;
+                    const passwordInput = document.querySelector('input[name="login-password"]') as HTMLInputElement;
+                    if (emailInput) emailInput.value = '';
+                    if (passwordInput) passwordInput.value = '';
+                  }, 100);
                 }}
                 className="text-white/90 hover:text-white transition-all duration-300 hover:scale-105 font-medium px-5 py-2.5 rounded-xl hover:bg-blue-500/20 backdrop-blur-sm"
               >
