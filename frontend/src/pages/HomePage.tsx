@@ -23,6 +23,14 @@ const HomePage: React.FC = () => {
     setError('');
     setLoading(true);
 
+    // PULISCI COMPLETAMENTE IL LOCALSTORAGE PRIMA DEL LOGIN
+    console.log('🧹 Pulizia localStorage prima del login...');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('current_user_role');
+    console.log('✅ localStorage pulito');
+
     try {
       console.log('🔵 Starting login...');
       console.log('🔍 LOGIN DATA SENT:', {
