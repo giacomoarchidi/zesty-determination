@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { tutorApi } from '../../api/tutor';
+import { assignmentApi, AssignmentResponse } from '../../api/assignment';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 
@@ -17,6 +18,18 @@ interface Assignment {
     url: string;
     size: number;
   }[];
+}
+
+// Interfaccia per i dati di creazione compito
+interface AssignmentCreateData {
+  title: string;
+  description: string;
+  instructions: string;
+  subject: string;
+  due_date: string;
+  points: number;
+  is_published: boolean;
+  student_id: number;
 }
 
 interface Student {
@@ -61,11 +74,11 @@ const AssignmentsPage: React.FC = () => {
   const [showPreview, setShowPreview] = useState(true);
   const [expandPreview, setExpandPreview] = useState(false);
   const previewRef = useRef<HTMLDivElement | null>(null);
-  const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   useEffect(() => {
     if (!selectedStudent && students.length > 0) {
-      setSelectedStudent(students[0].id);
+      setSelectedStudent(students[0]);
     }
   }, [students, selectedStudent]);
 
@@ -255,44 +268,74 @@ const AssignmentsPage: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  const createAssignment = () => {
-    if (!newAssignment.title || !newAssignment.description) {
-      alert('Compila tutti i campi obbligatori');
+  const createAssignment = async () => {
+    if (!newAssignment.title || !newAssignment.description || !selectedStudent) {
+      alert('Compila tutti i campi obbligatori e seleziona uno studente');
       return;
     }
 
-    // Simula l'upload dei file (in produzione, qui faresti una chiamata API)
-    const attachments = uploadedFiles.map(file => ({
-      name: file.name,
-      url: URL.createObjectURL(file), // In produzione, questo sarebbe l'URL del server
-      size: file.size
-    }));
+    try {
+      console.log('📝 Creazione compito...');
+      
+      // Prepara i dati per l'API
+      const assignmentData: AssignmentCreateData = {
+        title: newAssignment.title!,
+        description: newAssignment.description!,
+        instructions: newAssignment.description!, // Usa la descrizione come istruzioni per ora
+        subject: newAssignment.subject!,
+        due_date: new Date(newAssignment.dueDate!).toISOString(),
+        points: newAssignment.points!,
+        is_published: true,
+        student_id: parseInt(selectedStudent.id)
+      };
 
-    const assignment: Assignment = {
-      id: Date.now().toString(),
-      title: newAssignment.title!,
-      subject: newAssignment.subject!,
-      description: newAssignment.description!,
-      dueDate: newAssignment.dueDate!,
-      difficulty: newAssignment.difficulty!,
-      points: newAssignment.points!,
-      status: 'published',
-      attachments: attachments.length > 0 ? attachments : undefined
-    };
+      console.log('📤 Invio dati compito:', assignmentData);
 
-    setAssignments(prev => [...prev, assignment]);
-    setNewAssignment({
-      title: '',
-      subject: 'Matematica',
-      description: '',
-      dueDate: '',
-      difficulty: 'medium',
-      points: 10,
-      status: 'published'
-    });
-    setUploadedFiles([]);
-    setShowCreateForm(false);
-    alert('✅ Compito creato con successo!' + (attachments.length > 0 ? ` (${attachments.length} file allegati)` : ''));
+      // Chiama l'API per creare il compito
+      const response = await assignmentApi.create(assignmentData);
+      console.log('✅ Compito creato con successo:', response);
+
+      // Aggiorna la lista locale
+      const newAssignmentLocal: Assignment = {
+        id: response.id.toString(),
+        title: response.title,
+        subject: response.subject,
+        description: response.description,
+        dueDate: new Date(response.due_date).toLocaleDateString('it-IT'),
+        difficulty: 'medium', // Default per ora
+        points: response.points,
+        status: response.is_published ? 'published' : 'draft',
+        attachments: uploadedFiles.length > 0 ? uploadedFiles.map(file => ({
+          name: file.name,
+          url: URL.createObjectURL(file),
+          size: file.size
+        })) : undefined
+      };
+
+      setAssignments(prev => [...prev, newAssignmentLocal]);
+      
+      // Reset form
+      setNewAssignment({
+        title: '',
+        subject: 'Matematica',
+        description: '',
+        dueDate: '',
+        difficulty: 'medium',
+        points: 10,
+        status: 'published'
+      });
+      setUploadedFiles([]);
+      setShowCreateForm(false);
+      setSelectedStudent(null);
+
+      // Notifica la dashboard per ricaricare i dati
+      window.dispatchEvent(new CustomEvent('assignmentCreated'));
+
+      alert('✅ Compito assegnato allo studente con successo!');
+    } catch (error) {
+      console.error('❌ Errore creazione compito:', error);
+      alert('❌ Errore durante la creazione del compito. Riprova.');
+    }
   };
 
   const publishAssignment = (id: string) => {
@@ -443,8 +486,11 @@ const AssignmentsPage: React.FC = () => {
                   <div>
                     <label className="block text-white/70 mb-2">Studente</label>
                     <select
-                      value={selectedStudent}
-                      onChange={(e)=>setSelectedStudent(e.target.value)}
+                      value={selectedStudent?.id || ''}
+                      onChange={(e) => {
+                        const student = students.find(s => s.id === e.target.value);
+                        setSelectedStudent(student || null);
+                      }}
                       className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       {students.map(s => (
@@ -472,7 +518,7 @@ const AssignmentsPage: React.FC = () => {
                               topic: newAssignment.title || '',
                               difficulty: aiDifficulty,
                               subject: newAssignment.subject || 'Matematica',
-                              student_id: Number(selectedStudent)||0,
+                              student_id: Number(selectedStudent?.id)||0,
                             });
                             if(data){
                               const title = sanitizeAi(data.title) || (newAssignment.title || '');
@@ -519,7 +565,7 @@ const AssignmentsPage: React.FC = () => {
                               subject: newAssignment.subject || 'Matematica',
                               due_date: dueStr,
                               points: 100,
-                              student_id: Number(selectedStudent),
+                              student_id: Number(selectedStudent?.id),
                               is_published: true
                             };
                             const res = await apiClient.post('/assignments', payload).catch((e:any)=>{

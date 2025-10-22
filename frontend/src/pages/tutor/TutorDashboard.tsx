@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { availabilityApi } from '../../api/availability';
 import type { AvailabilitySlot } from '../../api/availability';
 import { tutorApi } from '../../api/tutor';
+import { assignmentApi } from '../../api/assignment';
 import type { TutorStats, TutorAssignment } from '../../api/tutor';
 import { useAuthStore } from '../../store/authStore';
 
@@ -143,7 +144,7 @@ const TutorDashboard: React.FC = () => {
         // Carica compiti assegnati
         try {
           console.log('📡 Chiamata API: /assignments/tutor');
-          const assignmentsData = await tutorApi.getAssignments();
+          const assignmentsData = await assignmentApi.getTutorAssignments();
           console.log('✅ Compiti caricati:', assignmentsData);
           console.log('📊 Numero compiti ricevuti:', assignmentsData?.length || 0);
           console.log('🔍 Dettagli compiti:', JSON.stringify(assignmentsData, null, 2));
