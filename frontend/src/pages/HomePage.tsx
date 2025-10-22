@@ -11,6 +11,14 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { setUser, setToken, setIsAuthenticated } = useAuthStore();
 
+  // Forza la pulizia dei campi quando si apre il modal
+  useEffect(() => {
+    if (showLogin) {
+      setLoginData({ email: '', password: '' });
+      setError('');
+    }
+  }, [showLogin]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -66,7 +74,15 @@ const HomePage: React.FC = () => {
       });
       
       // ALERT PER DEBUG - RIMUOVERE DOPO IL TEST
-      alert(`🔍 DEBUG LOGIN:\nEmail: ${userProfile.email}\nRole: ${userProfile.role}\nRoleStr: ${roleStr}`);
+      alert(`🔍 DEBUG LOGIN:\nEmail inserita: ${loginData.email}\nEmail ricevuta: ${userProfile.email}\nRole: ${userProfile.role}\nRoleStr: ${roleStr}`);
+      
+      // Verifica che l'email corrisponda
+      if (loginData.email.toLowerCase() !== userProfile.email.toLowerCase()) {
+        alert(`⚠️ ERRORE: Email non corrisponde!\nInserita: ${loginData.email}\nRicevuta: ${userProfile.email}\n\nProbabilmente l'autocomplete ha inserito credenziali sbagliate.\n\nRiprova digitando manualmente le credenziali.`);
+        setError('Email non corrisponde. Digita manualmente le credenziali.');
+        setLoading(false);
+        return;
+      }
       
       // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
       console.log('🔄 REDIRECT START - Role:', roleStr);
@@ -455,9 +471,10 @@ const HomePage: React.FC = () => {
               </div>
               <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent mb-2">Benvenuto!</h2>
               <p className="text-blue-200/70">Accedi al tuo account</p>
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mt-4">
-                <p className="text-yellow-300 text-sm">
-                  ⚠️ <strong>Importante:</strong> Digita manualmente le credenziali per evitare problemi di autocomplete
+              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mt-4">
+                <p className="text-red-300 text-sm font-bold">
+                  🚨 <strong>ATTENZIONE:</strong> Digita MANUALMENTE le credenziali!<br/>
+                  L'autocomplete del browser può inserire credenziali sbagliate!
                 </p>
               </div>
             </div>
