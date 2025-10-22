@@ -83,3 +83,26 @@ async def deactivate_account(
         )
     
     return {"message": "Account deactivated successfully"}
+
+
+@router.post("/admin/update-password", status_code=status.HTTP_200_OK)
+async def admin_update_password(
+    email: str,
+    new_password: str,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to update user password (temporary)"""
+    auth_service = AuthService(db)
+    user = db.query(User).filter(User.email == email).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utente non trovato"
+        )
+    
+    # Update password
+    user.hashed_password = auth_service.get_password_hash(new_password)
+    db.commit()
+    
+    return {"message": f"Password aggiornata per {email}"}
