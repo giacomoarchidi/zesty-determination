@@ -109,7 +109,10 @@ const HomePage: React.FC = () => {
       
       // Redirect immediato senza setTimeout
       console.log('🔄 EXECUTING REDIRECT NOW...');
-      window.location.href = redirectPath;
+      console.log('🔄 REDIRECT TO:', redirectPath);
+      
+      // Forza il redirect con replace per evitare problemi di routing
+      window.location.replace(redirectPath);
       console.log('🔄 REDIRECT SENT TO BROWSER');
     } catch (err: any) {
       console.error('❌ Login error:', err);
