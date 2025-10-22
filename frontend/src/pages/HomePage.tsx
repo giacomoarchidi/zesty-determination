@@ -16,6 +16,12 @@ const HomePage: React.FC = () => {
 
     try {
       console.log('🔵 Starting login...');
+      console.log('🔍 LOGIN DATA SENT:', {
+        email: loginData.email,
+        password: loginData.password ? '***' : 'EMPTY',
+        timestamp: new Date().toISOString()
+      });
+      
       const response = await authApi.login(loginData);
       console.log('✅ Login response:', response);
       
@@ -32,6 +38,7 @@ const HomePage: React.FC = () => {
       console.log('🔵 Fetching user profile...');
       const userProfile = await authApi.getProfile();
       console.log('✅ User profile received:', userProfile);
+      console.log('🔍 USER PROFILE DETAILS:', JSON.stringify(userProfile, null, 2));
       
       // Salva anche il ruolo (come authStore)
       if (userProfile?.role) {
@@ -439,6 +446,7 @@ const HomePage: React.FC = () => {
                   onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                   className="w-full px-4 py-3 bg-blue-950/30 border border-blue-500/30 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 transition-all duration-300 backdrop-blur-sm"
                   placeholder="tua@email.com"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -451,6 +459,7 @@ const HomePage: React.FC = () => {
                   onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                   className="w-full px-4 py-3 bg-blue-950/30 border border-blue-500/30 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 transition-all duration-300 backdrop-blur-sm"
                   placeholder="••••••••"
+                  autoComplete="off"
                   required
                 />
               </div>
