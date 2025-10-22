@@ -65,37 +65,39 @@ const HomePage: React.FC = () => {
         timestamp: new Date().toISOString()
       });
       
-      // Redirect in base al ruolo
+      // Redirect in base al ruolo - APPROCCIO SEMPLIFICATO
       console.log('🔄 Starting redirect logic...');
-      try {
-        let redirectPath = '';
-        if (roleStr === 'student') {
-          redirectPath = '/student/dashboard';
-          console.log('➡️ Redirecting to STUDENT dashboard');
-        } else if (roleStr === 'tutor') {
-          redirectPath = '/tutor/dashboard';
-          console.log('➡️ Redirecting to TUTOR dashboard');
-        } else if (roleStr === 'parent') {
-          redirectPath = '/parent/dashboard';
-          console.log('➡️ Redirecting to PARENT dashboard');
-        } else {
-          redirectPath = '/';
-          console.log('❌ Unknown role:', roleStr);
-        }
-        
-        console.log('🔄 Using window.location for redirect to:', redirectPath);
-        // Usa window.location invece di navigate per evitare problemi
-        // Aggiungi timestamp per forzare cache busting
-        const timestamp = Date.now();
-        const version = 'v1.0.0-2025-10-22-17-25';
-        console.log('🔄 Redirect timestamp:', timestamp);
-        console.log('🔄 Redirect version:', version);
-        window.location.href = redirectPath + '?v=' + timestamp + '&ver=' + version;
-        console.log('✅ Redirect completed');
-      } catch (redirectError) {
-        console.error('❌ Redirect error:', redirectError);
-        throw redirectError;
+      
+      // Determina il percorso di destinazione
+      let redirectPath = '';
+      if (roleStr === 'student') {
+        redirectPath = '/student/dashboard';
+        console.log('➡️ STUDENT dashboard selected');
+      } else if (roleStr === 'tutor') {
+        redirectPath = '/tutor/dashboard';
+        console.log('➡️ TUTOR dashboard selected');
+      } else if (roleStr === 'parent') {
+        redirectPath = '/parent/dashboard';
+        console.log('➡️ PARENT dashboard selected');
+      } else {
+        redirectPath = '/';
+        console.log('❌ Unknown role, redirecting to home');
       }
+      
+      console.log('🔄 Final redirect path:', redirectPath);
+      
+      // Usa setTimeout per evitare problemi di timing
+      setTimeout(() => {
+        console.log('🔄 Executing redirect after timeout...');
+        try {
+          window.location.href = redirectPath;
+          console.log('✅ Redirect executed successfully');
+        } catch (error) {
+          console.error('❌ Redirect execution error:', error);
+          // Fallback: ricarica la pagina
+          window.location.reload();
+        }
+      }, 100);
     } catch (err: any) {
       console.error('❌ Login error:', err);
       console.error('❌ Error response:', err.response);
