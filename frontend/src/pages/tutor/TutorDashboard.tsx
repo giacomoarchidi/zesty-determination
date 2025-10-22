@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { availabilityApi } from '../../api/availability';
 import type { AvailabilitySlot } from '../../api/availability';
 import { tutorApi } from '../../api/tutor';
-import type { TutorStats } from '../../api/tutor';
+import type { TutorStats, TutorAssignment } from '../../api/tutor';
 import { useAuthStore } from '../../store/authStore';
 
 interface Lesson {
@@ -37,6 +37,7 @@ const TutorDashboard: React.FC = () => {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [hourlyRate, setHourlyRate] = useState<number>(25); // Default fallback
+  const [assignments, setAssignments] = useState<TutorAssignment[]>([]);
 
   const user = useAuthStore((s) => s.user);
   const greetingName = (() => {
@@ -111,12 +112,23 @@ const TutorDashboard: React.FC = () => {
         console.log('⚠️ Prezzo orario non trovato nel profilo, uso default €25');
       }
       
-      // Carica lezioni dal backend
+      // Carica lezioni e compiti dal backend
       try {
         console.log('📡 Chiamata API: /tutor/lessons');
         const lessonsData = await tutorApi.getLessons(1, 100);
         console.log('✅ Risposta API ricevuta:', lessonsData);
         console.log('📊 Numero totale lezioni:', lessonsData.lessons.length);
+
+        // Carica compiti assegnati
+        try {
+          console.log('📡 Chiamata API: /assignments/tutor');
+          const assignmentsData = await tutorApi.getAssignments();
+          console.log('✅ Compiti caricati:', assignmentsData);
+          setAssignments(assignmentsData);
+        } catch (error) {
+          console.error('❌ Errore caricamento compiti:', error);
+          setAssignments([]);
+        }
         
         const lessons = lessonsData.lessons.map(lesson => ({
           id: lesson.id,
@@ -490,6 +502,72 @@ const TutorDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Compiti Assegnati */}
+        {assignments.length > 0 && (
+          <div className="mb-8 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-2xl border-2 border-purple-400/30 shadow-xl">
+            <div className="px-8 py-6 border-b border-purple-400/30">
+              <h2 className="text-2xl font-bold text-white flex items-center">
+                <svg className="w-6 h-6 mr-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Compiti Assegnati
+                <span className="ml-3 bg-purple-500 text-white text-sm font-bold px-3 py-1 rounded-full">
+                  {assignments.length}
+                </span>
+              </h2>
+            </div>
+            <div className="p-8 space-y-4">
+              {assignments.slice(0, 3).map((assignment) => (
+                <div key={assignment.id} className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-purple-400/30 hover:border-purple-400/50 transition-all duration-300">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-white mb-2">{assignment.title}</h3>
+                      <p className="text-white/70 mb-1">per <span className="font-medium">{assignment.student_name}</span></p>
+                      <p className="text-white/60 text-sm mb-2">{assignment.subject}</p>
+                      <p className="text-white/60 text-sm mb-3">
+                        📅 Scadenza: {new Date(assignment.due_date).toLocaleDateString('it-IT', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                      <div className="flex items-center space-x-4">
+                        <span className="inline-flex items-center px-3 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full text-sm font-medium">
+                          📝 {assignment.points} punti
+                        </span>
+                        {assignment.has_submission ? (
+                          <span className="inline-flex items-center px-3 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full text-sm font-medium">
+                            ✅ Consegnato
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full text-sm font-medium">
+                            ⏳ In attesa
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {assignments.length > 3 && (
+                <div className="text-center pt-4">
+                  <Link 
+                    to="/tutor/assignments"
+                    className="inline-flex items-center px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-bold rounded-xl transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50"
+                  >
+                    Vedi tutti i compiti ({assignments.length})
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         )}

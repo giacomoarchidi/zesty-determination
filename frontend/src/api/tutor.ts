@@ -20,6 +20,24 @@ export interface TutorStats {
   total_earnings: number;
 }
 
+export interface TutorAssignment {
+  id: number;
+  title: string;
+  description: string;
+  instructions: string;
+  subject: string;
+  due_date: string;
+  points: number;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  tutor_name: string;
+  student_name: string;
+  has_submission: boolean;
+  submission_status?: string;
+  submission_grade?: number;
+}
+
 export interface TutorLessonsResponse {
   lessons: TutorLesson[];
   total: number;
@@ -66,6 +84,12 @@ export const tutorApi = {
   // Rifiuta una lezione
   rejectLesson: async (lessonId: number): Promise<TutorLesson> => {
     const response = await apiClient.put(`/lessons/${lessonId}/reject`);
+    return response.data;
+  },
+
+  // Ottieni i compiti assegnati dal tutor
+  getAssignments: async (): Promise<TutorAssignment[]> => {
+    const response = await apiClient.get('/assignments/tutor');
     return response.data;
   },
 };
