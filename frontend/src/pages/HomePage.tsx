@@ -68,19 +68,24 @@ const HomePage: React.FC = () => {
       // Redirect in base al ruolo
       console.log('🔄 Starting redirect logic...');
       try {
+        let redirectPath = '';
         if (roleStr === 'student') {
+          redirectPath = '/student/dashboard';
           console.log('➡️ Redirecting to STUDENT dashboard');
-          navigate('/student/dashboard');
         } else if (roleStr === 'tutor') {
+          redirectPath = '/tutor/dashboard';
           console.log('➡️ Redirecting to TUTOR dashboard');
-          navigate('/tutor/dashboard');
         } else if (roleStr === 'parent') {
+          redirectPath = '/parent/dashboard';
           console.log('➡️ Redirecting to PARENT dashboard');
-          navigate('/parent/dashboard');
         } else {
+          redirectPath = '/';
           console.log('❌ Unknown role:', roleStr);
-          navigate('/');
         }
+        
+        console.log('🔄 Using window.location for redirect to:', redirectPath);
+        // Usa window.location invece di navigate per evitare problemi
+        window.location.href = redirectPath;
         console.log('✅ Redirect completed');
       } catch (redirectError) {
         console.error('❌ Redirect error:', redirectError);
