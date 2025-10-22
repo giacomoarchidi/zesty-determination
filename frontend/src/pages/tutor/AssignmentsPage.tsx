@@ -529,6 +529,8 @@ const AssignmentsPage: React.FC = () => {
                             if (res?.data?.id) {
                               alert('📤 Compito assegnato allo studente!');
                               setShowCreateForm(false);
+                              // Notifica la dashboard per ricaricare i dati
+                              window.dispatchEvent(new CustomEvent('assignmentCreated'));
                             } else {
                               alert('Errore creazione compito');
                             }

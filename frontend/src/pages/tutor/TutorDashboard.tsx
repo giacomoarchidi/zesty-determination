@@ -59,6 +59,27 @@ const TutorDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Ricarica dati quando la finestra torna in focus (utile dopo aver creato compiti)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Finestra in focus, ricarico dati...');
+      loadData();
+    };
+
+    const handleAssignmentCreated = () => {
+      console.log('📤 Compito creato, ricarico dati...');
+      loadData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('assignmentCreated', handleAssignmentCreated);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('assignmentCreated', handleAssignmentCreated);
+    };
+  }, []);
+
   const handleConfirmLesson = async () => {
     if (!selectedLesson) return;
     
