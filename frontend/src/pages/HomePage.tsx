@@ -49,6 +49,7 @@ const HomePage: React.FC = () => {
       }
       
       // Aggiorna useAuthStore per evitare conflitti
+      console.log('🔄 Updating Zustand store...');
       setUser(userProfile);
       setToken(response.access_token);
       setIsAuthenticated(true);
@@ -65,18 +66,25 @@ const HomePage: React.FC = () => {
       });
       
       // Redirect in base al ruolo
-      if (roleStr === 'student') {
-        console.log('➡️ Redirecting to STUDENT dashboard');
-        navigate('/student/dashboard');
-      } else if (roleStr === 'tutor') {
-        console.log('➡️ Redirecting to TUTOR dashboard');
-        navigate('/tutor/dashboard');
-      } else if (roleStr === 'parent') {
-        console.log('➡️ Redirecting to PARENT dashboard');
-        navigate('/parent/dashboard');
-      } else {
-        console.log('❌ Unknown role:', roleStr);
-        navigate('/');
+      console.log('🔄 Starting redirect logic...');
+      try {
+        if (roleStr === 'student') {
+          console.log('➡️ Redirecting to STUDENT dashboard');
+          navigate('/student/dashboard');
+        } else if (roleStr === 'tutor') {
+          console.log('➡️ Redirecting to TUTOR dashboard');
+          navigate('/tutor/dashboard');
+        } else if (roleStr === 'parent') {
+          console.log('➡️ Redirecting to PARENT dashboard');
+          navigate('/parent/dashboard');
+        } else {
+          console.log('❌ Unknown role:', roleStr);
+          navigate('/');
+        }
+        console.log('✅ Redirect completed');
+      } catch (redirectError) {
+        console.error('❌ Redirect error:', redirectError);
+        throw redirectError;
       }
     } catch (err: any) {
       console.error('❌ Login error:', err);
@@ -86,8 +94,8 @@ const HomePage: React.FC = () => {
       const errorMsg = err.response?.data?.detail || err.message || 'Errore durante il login';
       setError(errorMsg);
       
-      // MOSTRA L'ERRORE IN UN ALERT
-      alert('❌ ERRORE LOGIN:\n\n' + errorMsg + '\n\nGuarda la console per più dettagli');
+      // Log dell'errore senza alert
+      console.error('❌ ERRORE LOGIN:', errorMsg);
     } finally {
       setLoading(false);
     }
