@@ -87,8 +87,10 @@ const HomePage: React.FC = () => {
         // Usa window.location invece di navigate per evitare problemi
         // Aggiungi timestamp per forzare cache busting
         const timestamp = Date.now();
+        const version = 'v1.0.0-2025-10-22-17-25';
         console.log('🔄 Redirect timestamp:', timestamp);
-        window.location.href = redirectPath + '?v=' + timestamp;
+        console.log('🔄 Redirect version:', version);
+        window.location.href = redirectPath + '?v=' + timestamp + '&ver=' + version;
         console.log('✅ Redirect completed');
       } catch (redirectError) {
         console.error('❌ Redirect error:', redirectError);
