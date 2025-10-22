@@ -85,7 +85,10 @@ const HomePage: React.FC = () => {
         
         console.log('🔄 Using window.location for redirect to:', redirectPath);
         // Usa window.location invece di navigate per evitare problemi
-        window.location.href = redirectPath;
+        // Aggiungi timestamp per forzare cache busting
+        const timestamp = Date.now();
+        console.log('🔄 Redirect timestamp:', timestamp);
+        window.location.href = redirectPath + '?v=' + timestamp;
         console.log('✅ Redirect completed');
       } catch (redirectError) {
         console.error('❌ Redirect error:', redirectError);
