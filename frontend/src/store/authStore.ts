@@ -18,6 +18,9 @@ interface AuthActions {
   loadProfile: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
+  setUser: (user: User | null) => void;
+  setToken: (token: string | null) => void;
+  setIsAuthenticated: (isAuthenticated: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState & AuthActions>()(
@@ -132,6 +135,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       clearError: () => set({ error: null }),
       setLoading: (loading: boolean) => set({ isLoading: loading }),
+      setUser: (user: User | null) => set({ user }),
+      setToken: (token: string | null) => set({ token }),
+      setIsAuthenticated: (isAuthenticated: boolean) => set({ isAuthenticated }),
     }),
     {
       name: 'auth-storage',
