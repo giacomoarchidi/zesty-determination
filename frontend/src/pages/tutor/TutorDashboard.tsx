@@ -44,27 +44,11 @@ const TutorDashboard: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // CONTROLLO AUTENTICAZIONE - TEMPORANEAMENTE DISABILITATO
+  // CONTROLLO AUTENTICAZIONE - COMPLETAMENTE RIMOSSO
   useEffect(() => {
     console.log('🔍 TutorDashboard - User:', user);
     console.log('🔍 TutorDashboard - IsAuthenticated:', isAuthenticated);
-    
-    // TEMPORANEAMENTE DISABILITATO PER DEBUG
-    console.log('⏸️ AUTH CHECK DISABLED FOR DEBUG');
-    
-    // if (!isAuthenticated || !user) {
-    //   console.log('❌ TutorDashboard - User not authenticated, redirecting to home');
-    //   navigate('/', { replace: true });
-    //   return;
-    // }
-    
-    // if (user.role !== 'tutor') {
-    //   console.log('❌ TutorDashboard - User is not a tutor, redirecting to home');
-    //   navigate('/', { replace: true });
-    //   return;
-    // }
-    
-    console.log('✅ TutorDashboard - Auth check disabled, proceeding...');
+    console.log('✅ TutorDashboard - No auth check, proceeding...');
   }, [user, isAuthenticated, navigate]);
   const greetingName = (() => {
     if (!user) return 'Tutor';
@@ -350,6 +334,11 @@ const TutorDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      {/* DEBUG MESSAGE - MOLTO VISIBILE */}
+      <div className="bg-red-500 text-white p-4 text-center font-bold text-xl">
+        🎉 SUCCESSO! SEI NELLA DASHBOARD TUTOR! 🎉
+      </div>
+      
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-md shadow-xl border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

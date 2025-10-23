@@ -133,15 +133,10 @@ const HomePage: React.FC = () => {
       const debugMessage = `DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nModal will stay open for debug`;
       console.log('📋 Debug message:', debugMessage);
       
-      // FORZA IL REDIRECT MANUALE
+      // FORZA IL REDIRECT MANUALE - SEMPRE TUTOR PER DEBUG
       console.log('🚀 FORCING MANUAL REDIRECT...');
-      if (roleStr === 'tutor') {
-        console.log('➡️ Redirecting to TEST TUTOR page');
-        window.location.href = '/test-tutor';
-      } else if (roleStr === 'student') {
-        console.log('➡️ Redirecting to STUDENT dashboard');
-        window.location.href = '/student/dashboard';
-      }
+      console.log('➡️ FORCING REDIRECT TO TUTOR DASHBOARD');
+      window.location.href = '/tutor/dashboard';
       
       return;
     } catch (err: any) {
