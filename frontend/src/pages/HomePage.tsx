@@ -133,7 +133,16 @@ const HomePage: React.FC = () => {
       const debugMessage = `DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nModal will stay open for debug`;
       console.log('📋 Debug message:', debugMessage);
       
-      // NON ESEGUIRE IL REDIRECT PER ORA
+      // FORZA IL REDIRECT MANUALE
+      console.log('🚀 FORCING MANUAL REDIRECT...');
+      if (roleStr === 'tutor') {
+        console.log('➡️ Redirecting to TUTOR dashboard');
+        window.location.href = '/tutor/dashboard';
+      } else if (roleStr === 'student') {
+        console.log('➡️ Redirecting to STUDENT dashboard');
+        window.location.href = '/student/dashboard';
+      }
+      
       return;
     } catch (err: any) {
       console.error('❌ Login error:', err);
