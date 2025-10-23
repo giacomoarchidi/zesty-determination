@@ -113,6 +113,10 @@ const HomePage: React.FC = () => {
       // LOGGING SENZA ALERT
       console.log(`🔍 LOGIN SUCCESS: ${userProfile.email} - Role: ${userProfile.role} - Redirect: ${roleStr === 'tutor' ? 'TUTOR DASHBOARD' : 'STUDENT DASHBOARD'}`);
       
+      // DEBUG: Mostra alert per bloccare il redirect
+      console.log('🚨 DEBUG: Mostrando alert per bloccare redirect...');
+      alert(`DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nClick OK to continue redirect...`);
+      
       // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
       console.log('🔄 REDIRECT START - Role:', roleStr);
       
