@@ -44,24 +44,27 @@ const TutorDashboard: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // CONTROLLO AUTENTICAZIONE
+  // CONTROLLO AUTENTICAZIONE - TEMPORANEAMENTE DISABILITATO
   useEffect(() => {
     console.log('🔍 TutorDashboard - User:', user);
     console.log('🔍 TutorDashboard - IsAuthenticated:', isAuthenticated);
     
-    if (!isAuthenticated || !user) {
-      console.log('❌ TutorDashboard - User not authenticated, redirecting to home');
-      navigate('/', { replace: true });
-      return;
-    }
+    // TEMPORANEAMENTE DISABILITATO PER DEBUG
+    console.log('⏸️ AUTH CHECK DISABLED FOR DEBUG');
     
-    if (user.role !== 'tutor') {
-      console.log('❌ TutorDashboard - User is not a tutor, redirecting to home');
-      navigate('/', { replace: true });
-      return;
-    }
+    // if (!isAuthenticated || !user) {
+    //   console.log('❌ TutorDashboard - User not authenticated, redirecting to home');
+    //   navigate('/', { replace: true });
+    //   return;
+    // }
     
-    console.log('✅ TutorDashboard - User authenticated and is tutor');
+    // if (user.role !== 'tutor') {
+    //   console.log('❌ TutorDashboard - User is not a tutor, redirecting to home');
+    //   navigate('/', { replace: true });
+    //   return;
+    // }
+    
+    console.log('✅ TutorDashboard - Auth check disabled, proceeding...');
   }, [user, isAuthenticated, navigate]);
   const greetingName = (() => {
     if (!user) return 'Tutor';
