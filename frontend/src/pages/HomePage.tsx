@@ -136,8 +136,8 @@ const HomePage: React.FC = () => {
       // FORZA IL REDIRECT MANUALE
       console.log('🚀 FORCING MANUAL REDIRECT...');
       if (roleStr === 'tutor') {
-        console.log('➡️ Redirecting to TUTOR dashboard');
-        window.location.href = '/tutor/dashboard';
+        console.log('➡️ Redirecting to TEST TUTOR page');
+        window.location.href = '/test-tutor';
       } else if (roleStr === 'student') {
         console.log('➡️ Redirecting to STUDENT dashboard');
         window.location.href = '/student/dashboard';

@@ -12,6 +12,7 @@ import TutorAssignmentsPage from './pages/tutor/AssignmentsPage';
 import ParentDashboard from './pages/parent/ParentDashboard';
 import BookLesson from './pages/lessons/BookLesson';
 import VideoRoom from './pages/lessons/VideoRoom';
+import TestTutor from './pages/TestTutor';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="/tutor/dashboard" element={<TutorDashboard />} />
           <Route path="/tutor/availability" element={<AvailabilityPage />} />
           <Route path="/tutor/assignments" element={<TutorAssignmentsPage />} />
+          <Route path="/test-tutor" element={<TestTutor />} />
           <Route path="/parent/dashboard" element={<ParentDashboard />} />
           
           {/* Lessons Routes */}
