@@ -120,9 +120,18 @@ const HomePage: React.FC = () => {
       console.log('👤 User:', userProfile.first_name);
       console.log('🔄 Should redirect to:', roleStr === 'tutor' ? '/tutor/dashboard' : '/student/dashboard');
       
-      // TEMPORANEAMENTE DISABILITATO IL REDIRECT
-      console.log('⏸️ REDIRECT DISABLED FOR DEBUG');
-      alert(`DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nRedirect DISABLED for debug`);
+      // FORZA IL MODAL A RIMANERE APERTO
+      console.log('⏸️ KEEPING MODAL OPEN FOR DEBUG');
+      
+      // NON CHIUDERE IL MODAL
+      // setShowLoginModal(false); // DISABILITATO
+      
+      // Mostra i dettagli nel modal invece che in un alert
+      console.log('📋 Showing debug info in modal...');
+      
+      // Aggiungi un messaggio di debug visibile
+      const debugMessage = `DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nModal will stay open for debug`;
+      console.log('📋 Debug message:', debugMessage);
       
       // NON ESEGUIRE IL REDIRECT PER ORA
       return;
@@ -503,6 +512,20 @@ const HomePage: React.FC = () => {
             {error && (
               <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl backdrop-blur-sm">
                 <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* DEBUG INFO */}
+            {user && (
+              <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-xl backdrop-blur-sm">
+                <p className="text-green-300 text-sm font-bold">
+                  🚨 DEBUG: Login successful!<br/>
+                  Email: {user.email}<br/>
+                  Role: {user.role}<br/>
+                  User: {user.first_name}<br/>
+                  <br/>
+                  Modal will stay open for debug
+                </p>
               </div>
             )}
 
