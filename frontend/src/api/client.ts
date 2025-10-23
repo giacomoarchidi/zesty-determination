@@ -1,10 +1,7 @@
 import axios from 'axios';
 
-// Se presente, usa SEMPRE la variabile d'ambiente (anche in locale) per assicurare stesso backend fra client diversi
-const isLocalDev = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL && String(import.meta.env.VITE_API_BASE_URL).trim() !== '')
-  ? String(import.meta.env.VITE_API_BASE_URL)
-  : (isLocalDev ? 'http://localhost:8000' : 'http://localhost:8000');
+// Usa sempre l'URL di Railway per il backend
+const API_BASE_URL = 'https://zesty-determination-production.up.railway.app';
 
 export const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
