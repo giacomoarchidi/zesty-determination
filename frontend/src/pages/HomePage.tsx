@@ -113,49 +113,19 @@ const HomePage: React.FC = () => {
       // LOGGING SENZA ALERT
       console.log(`🔍 LOGIN SUCCESS: ${userProfile.email} - Role: ${userProfile.role} - Redirect: ${roleStr === 'tutor' ? 'TUTOR DASHBOARD' : 'STUDENT DASHBOARD'}`);
       
-      // DEBUG: Mostra alert per bloccare il redirect
-      console.log('🚨 DEBUG: Mostrando alert per bloccare redirect...');
-      alert(`DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nClick OK to continue redirect...`);
+      // DEBUG: SOLO LOGGING, NESSUN REDIRECT
+      console.log('🚨 DEBUG: Login successful!');
+      console.log('📧 Email:', userProfile.email);
+      console.log('👤 Role:', roleStr);
+      console.log('👤 User:', userProfile.first_name);
+      console.log('🔄 Should redirect to:', roleStr === 'tutor' ? '/tutor/dashboard' : '/student/dashboard');
       
-      // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
-      console.log('🔄 REDIRECT START - Role:', roleStr);
+      // TEMPORANEAMENTE DISABILITATO IL REDIRECT
+      console.log('⏸️ REDIRECT DISABLED FOR DEBUG');
+      alert(`DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nRedirect DISABLED for debug`);
       
-      // Determina il percorso di destinazione
-      let redirectPath = '';
-      if (roleStr === 'student') {
-        redirectPath = '/student/dashboard';
-      } else if (roleStr === 'tutor') {
-        redirectPath = '/tutor/dashboard';
-      } else if (roleStr === 'parent') {
-        redirectPath = '/parent/dashboard';
-      } else {
-        redirectPath = '/';
-      }
-      
-      console.log('🔄 REDIRECT PATH:', redirectPath);
-      
-      // Redirect immediato senza setTimeout
-      console.log('🔄 EXECUTING REDIRECT NOW...');
-      console.log('🔄 REDIRECT TO:', redirectPath);
-      
-      // REDIRECT CON REACT ROUTER
-      console.log('🔄 FINAL REDIRECT TO:', redirectPath);
-      console.log('🔄 USING REACT ROUTER NAVIGATE');
-      
-      // Usa React Router per il redirect
-      console.log('🔄 NAVIGATING TO:', redirectPath);
-      navigate(redirectPath, { replace: true });
-      console.log('✅ React Router navigate executed');
-      
-      // Verifica che il redirect sia avvenuto
-      setTimeout(() => {
-        console.log('🔍 CURRENT PATH AFTER REDIRECT:', window.location.pathname);
-        if (window.location.pathname === '/') {
-          console.log('❌ REDIRECT FAILED - STILL ON HOMEPAGE');
-          // Forza il redirect manualmente
-          window.location.href = redirectPath;
-        }
-      }, 1000);
+      // NON ESEGUIRE IL REDIRECT PER ORA
+      return;
     } catch (err: any) {
       console.error('❌ Login error:', err);
       console.error('❌ Error response:', err.response);
