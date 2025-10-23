@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { availabilityApi } from '../../api/availability';
 import type { AvailabilitySlot } from '../../api/availability';
 import { tutorApi } from '../../api/tutor';
@@ -26,7 +26,6 @@ interface Availability {
 }
 
 const TutorDashboard: React.FC = () => {
-  const navigate = useNavigate();
   const [upcomingLessons, setUpcomingLessons] = useState<Lesson[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,14 +41,6 @@ const TutorDashboard: React.FC = () => {
   const [assignments, setAssignments] = useState<TutorAssignment[]>([]);
 
   const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  // CONTROLLO AUTENTICAZIONE - COMPLETAMENTE RIMOSSO
-  useEffect(() => {
-    console.log('🔍 TutorDashboard - User:', user);
-    console.log('🔍 TutorDashboard - IsAuthenticated:', isAuthenticated);
-    console.log('✅ TutorDashboard - No auth check, proceeding...');
-  }, [user, isAuthenticated, navigate]);
   const greetingName = (() => {
     if (!user) return 'Tutor';
     return user.first_name || user.email?.split('@')[0] || 'Tutor';
@@ -334,11 +325,6 @@ const TutorDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      {/* DEBUG MESSAGE - MOLTO VISIBILE */}
-      <div className="bg-red-500 text-white p-4 text-center font-bold text-xl">
-        🎉 SUCCESSO! SEI NELLA DASHBOARD TUTOR! 🎉
-      </div>
-      
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-md shadow-xl border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
@@ -11,24 +11,10 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { setUser, setToken, setIsAuthenticated } = useAuthStore();
 
-  // Forza la pulizia dei campi quando si apre il modal
-  useEffect(() => {
-    if (showLogin) {
-      setLoginData({ email: '', password: '' });
-      setError('');
-    }
-  }, [showLogin]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    // PULISCI COMPLETAMENTE IL LOCALSTORAGE PRIMA DEL LOGIN
-    console.log('🧹 Pulizia localStorage prima del login...');
-    localStorage.clear();
-    sessionStorage.clear();
-    console.log('✅ localStorage e sessionStorage completamente puliti');
 
     try {
       console.log('🔵 Starting login...');
@@ -40,25 +26,15 @@ const HomePage: React.FC = () => {
       
       const response = await authApi.login(loginData);
       console.log('✅ Login response:', response);
-      console.log('🔍 Response details:', {
-        hasAccessToken: !!response?.access_token,
-        tokenType: response?.token_type,
-        expiresIn: response?.expires_in
-      });
       
       // Controlla se la risposta è valida
       if (!response || !response.access_token) {
-        console.error('❌ Invalid login response:', response);
         throw new Error('Risposta di login non valida');
       }
       
       // Salva il token (CORRETTO: usa 'access_token' come authStore)
       localStorage.setItem('access_token', response.access_token);
-      console.log('✅ Token saved:', response.access_token.substring(0, 20) + '...');
-      
-      // VERIFICA CHE IL TOKEN SIA STATO SALVATO
-      const savedToken = localStorage.getItem('access_token');
-      console.log('🔍 Token verification:', savedToken ? 'SAVED' : 'NOT SAVED');
+      console.log('✅ Token saved');
       
       // Ottieni il profilo utente
       console.log('🔵 Fetching user profile...');
@@ -79,20 +55,6 @@ const HomePage: React.FC = () => {
       setIsAuthenticated(true);
       console.log('✅ useAuthStore aggiornato');
       
-      // FORZA IL RESET COMPLETO DELLO STORE
-      console.log('🔄 Forcing complete store reset...');
-      localStorage.setItem('auth-storage', JSON.stringify({
-        state: {
-          user: userProfile,
-          token: response.access_token,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null
-        },
-        version: 0
-      }));
-      console.log('✅ Store reset completed');
-      
       // Converti il ruolo in stringa per essere sicuri
       const roleStr = String(userProfile.role).toLowerCase();
       console.log('✅ Role as string:', roleStr);
@@ -103,42 +65,27 @@ const HomePage: React.FC = () => {
         timestamp: new Date().toISOString()
       });
       
-      // LOGGING SEMPLIFICATO
-      console.log('🔍 LOGIN SUCCESS:', {
-        email: userProfile.email,
-        role: userProfile.role,
-        roleStr: roleStr
-      });
+      // Redirect in base al ruolo - APPROCCIO ULTRA SEMPLIFICATO
+      console.log('🔄 REDIRECT START - Role:', roleStr);
       
-      // LOGGING SENZA ALERT
-      console.log(`🔍 LOGIN SUCCESS: ${userProfile.email} - Role: ${userProfile.role} - Redirect: ${roleStr === 'tutor' ? 'TUTOR DASHBOARD' : 'STUDENT DASHBOARD'}`);
+      // Determina il percorso di destinazione
+      let redirectPath = '';
+      if (roleStr === 'student') {
+        redirectPath = '/student/dashboard';
+      } else if (roleStr === 'tutor') {
+        redirectPath = '/tutor/dashboard';
+      } else if (roleStr === 'parent') {
+        redirectPath = '/parent/dashboard';
+      } else {
+        redirectPath = '/';
+      }
       
-      // DEBUG: SOLO LOGGING, NESSUN REDIRECT
-      console.log('🚨 DEBUG: Login successful!');
-      console.log('📧 Email:', userProfile.email);
-      console.log('👤 Role:', roleStr);
-      console.log('👤 User:', userProfile.first_name);
-      console.log('🔄 Should redirect to:', roleStr === 'tutor' ? '/tutor/dashboard' : '/student/dashboard');
+      console.log('🔄 REDIRECT PATH:', redirectPath);
       
-      // FORZA IL MODAL A RIMANERE APERTO
-      console.log('⏸️ KEEPING MODAL OPEN FOR DEBUG');
-      
-      // NON CHIUDERE IL MODAL
-      // setShowLoginModal(false); // DISABILITATO
-      
-      // Mostra i dettagli nel modal invece che in un alert
-      console.log('📋 Showing debug info in modal...');
-      
-      // Aggiungi un messaggio di debug visibile
-      const debugMessage = `DEBUG: Login successful!\nEmail: ${userProfile.email}\nRole: ${roleStr}\nUser: ${userProfile.first_name}\n\nModal will stay open for debug`;
-      console.log('📋 Debug message:', debugMessage);
-      
-      // FORZA IL REDIRECT MANUALE - SEMPRE PAGINA DI TEST
-      console.log('🚀 FORCING MANUAL REDIRECT...');
-      console.log('➡️ FORCING REDIRECT TO TEST PAGE');
-      window.location.href = '/test-tutor';
-      
-      return;
+      // Redirect immediato senza setTimeout
+      console.log('🔄 EXECUTING REDIRECT NOW...');
+      window.location.href = redirectPath;
+      console.log('🔄 REDIRECT SENT TO BROWSER');
     } catch (err: any) {
       console.error('❌ Login error:', err);
       console.error('❌ Error response:', err.response);
@@ -146,6 +93,9 @@ const HomePage: React.FC = () => {
       
       const errorMsg = err.response?.data?.detail || err.message || 'Errore durante il login';
       setError(errorMsg);
+      
+      // Assicurati che il modal rimanga aperto in caso di errore
+      setShowLogin(true);
       
       console.error('❌ ERRORE LOGIN:', errorMsg);
     } finally {
@@ -505,10 +455,9 @@ const HomePage: React.FC = () => {
               </div>
               <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent mb-2">Benvenuto!</h2>
               <p className="text-blue-200/70">Accedi al tuo account</p>
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mt-4">
-                <p className="text-red-300 text-sm font-bold">
-                  🚨 <strong>ATTENZIONE:</strong> Digita MANUALMENTE le credenziali!<br/>
-                  L'autocomplete del browser può inserire credenziali sbagliate!
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mt-4">
+                <p className="text-yellow-300 text-sm">
+                  ⚠️ <strong>Importante:</strong> Digita manualmente le credenziali per evitare problemi di autocomplete
                 </p>
               </div>
             </div>
@@ -516,20 +465,6 @@ const HomePage: React.FC = () => {
             {error && (
               <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl backdrop-blur-sm">
                 <p className="text-red-300 text-sm">{error}</p>
-              </div>
-            )}
-
-            {/* DEBUG INFO */}
-            {user && (
-              <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-xl backdrop-blur-sm">
-                <p className="text-green-300 text-sm font-bold">
-                  🚨 DEBUG: Login successful!<br/>
-                  Email: {user.email}<br/>
-                  Role: {user.role}<br/>
-                  User: {user.first_name}<br/>
-                  <br/>
-                  Modal will stay open for debug
-                </p>
               </div>
             )}
 

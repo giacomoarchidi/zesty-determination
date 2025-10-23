@@ -8,47 +8,6 @@ from app.services.auth_service import AuthService
 
 router = APIRouter()
 
-# TEMPORANEO - DEBUG ENDPOINT
-@router.get("/debug-users")
-def debug_users(db: Session = Depends(get_db)):
-    """Debug endpoint per vedere tutti gli utenti nel database"""
-    from app.core.config import settings
-    
-    users = db.query(User).all()
-    return {
-        "database_url": settings.get_database_url(),
-        "total_users": len(users),
-        "users": [
-            {
-                "id": user.id,
-                "email": user.email,
-                "role": user.role.value if user.role else None,
-                "is_active": user.is_active,
-                "has_student_profile": user.student_profile is not None,
-                "has_tutor_profile": user.tutor_profile is not None,
-                "has_parent_profile": user.parent_profile is not None
-            }
-            for user in users
-        ]
-    }
-
-# TEMPORANEO - ENDPOINT PER AGGIORNARE PASSWORD
-@router.post("/update-password")
-def update_password(email: str, new_password: str, db: Session = Depends(get_db)):
-    """Aggiorna la password di un utente"""
-    from app.services.auth_service import AuthService
-    
-    auth_service = AuthService(db)
-    user = db.query(User).filter(User.email == email).first()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="Utente non trovato")
-    
-    # Aggiorna la password
-    user.hashed_password = auth_service.get_password_hash(new_password)
-    db.commit()
-    
-    return {"message": f"Password aggiornata per {email}"}
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
