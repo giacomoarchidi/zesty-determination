@@ -57,6 +57,9 @@ const HomePage: React.FC = () => {
       
       // Converti il ruolo in stringa per essere sicuri
       const roleStr = String(userProfile.role).toLowerCase();
+      console.log('🔍 ROLE STRING:', roleStr);
+      console.log('🔍 USER ID:', userProfile.id);
+      console.log('🔍 USER EMAIL:', userProfile.email);
       console.log('✅ Role as string:', roleStr);
       console.log('🔍 DEBUG HOMEPAGE LOGIN:', {
         email: userProfile.email,
@@ -70,14 +73,20 @@ const HomePage: React.FC = () => {
       
       // Determina il percorso di destinazione
       let redirectPath = '';
+      console.log('🔍 CHECKING ROLE:', roleStr, '===', roleStr === 'tutor');
+      
       if (roleStr === 'student') {
         redirectPath = '/student/dashboard';
+        console.log('📚 STUDENT REDIRECT');
       } else if (roleStr === 'tutor') {
         redirectPath = '/tutor/dashboard';
+        console.log('🎓 TUTOR REDIRECT');
       } else if (roleStr === 'parent') {
         redirectPath = '/parent/dashboard';
+        console.log('👨‍👩‍👧‍👦 PARENT REDIRECT');
       } else {
         redirectPath = '/';
+        console.log('🏠 DEFAULT REDIRECT');
       }
       
       console.log('🔄 REDIRECT PATH:', redirectPath);

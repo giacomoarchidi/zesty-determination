@@ -313,12 +313,21 @@ const AssignmentsPage: React.FC = () => {
     try {
       console.log('📝 Creazione compito...');
       
-      // Valida la data
-      const dueDate = new Date(newAssignment.dueDate!);
+      // Valida la data selezionata (forza fine giornata per evitare problemi di timezone)
+      const dueDate = new Date(`${newAssignment.dueDate}T23:59:59`);
       if (isNaN(dueDate.getTime())) {
         alert('Data di scadenza non valida');
         return;
       }
+      if (dueDate <= new Date()) {
+        alert('La data di scadenza deve essere nel futuro');
+        return;
+      }
+
+      // Converte in stringa ISO senza suffisso Z per compatibilità con backend naive datetime
+      const dueDateLocalIso = new Date(dueDate.getTime() - dueDate.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 19);
       
       // Prepara i dati per l'API
       const assignmentData: AssignmentCreateData = {
@@ -326,7 +335,7 @@ const AssignmentsPage: React.FC = () => {
         description: newAssignment.description!,
         instructions: newAssignment.description!, // Usa la descrizione come istruzioni per ora
         subject: newAssignment.subject!,
-        due_date: dueDate.toISOString(),
+        due_date: dueDateLocalIso,
         points: newAssignment.points!,
         is_published: true,
         student_id: parseInt(selectedStudent.id)

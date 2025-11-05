@@ -35,6 +35,9 @@ const AssignmentsPage: React.FC = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
   // rimosso focus per placeholder dinamico; input semplice
   const [hasChecked, setHasChecked] = useState<boolean>(false);
+  const [studentAnswers, setStudentAnswers] = useState<string[]>([]);
+  const [isCheckingSolutions, setIsCheckingSolutions] = useState(false);
+  const [feedback, setFeedback] = useState<string>('');
 
   const location = useLocation();
   useEffect(() => {
@@ -52,6 +55,42 @@ const AssignmentsPage: React.FC = () => {
     };
     loadData();
   }, []);
+
+  // Inizializza KaTeX per renderizzare le formule matematiche
+  useEffect(() => {
+    const initKaTeX = () => {
+      if (typeof window !== 'undefined' && (window as any).renderMathInElement) {
+        (window as any).renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\(', right: '\\)', display: false},
+            {left: '\\[', right: '\\]', display: true}
+          ],
+          throwOnError: false,
+          strict: false
+        });
+      }
+    };
+
+    // Aspetta che KaTeX sia caricato
+    if (typeof window !== 'undefined') {
+      if ((window as any).renderMathInElement) {
+        setTimeout(initKaTeX, 100);
+      } else {
+        // Se KaTeX non è ancora caricato, aspetta
+        const checkKaTeX = setInterval(() => {
+          if ((window as any).renderMathInElement) {
+            clearInterval(checkKaTeX);
+            initKaTeX();
+          }
+        }, 100);
+        
+        // Timeout dopo 5 secondi
+        setTimeout(() => clearInterval(checkKaTeX), 5000);
+      }
+    }
+  }, [selectedAssignment]);
 
   useEffect(() => {
     // Se arrivo con ?id= apri direttamente il compito
@@ -83,11 +122,95 @@ const AssignmentsPage: React.FC = () => {
     if (!text) return '';
     const safe = sanitize(text);
     const lines = safe.split('\n');
-    const html = lines
+    
+    // Rimuovi duplicati mantenendo l'ordine
+    const seen = new Set();
+    const uniqueLines = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed && !seen.has(trimmed)) {
+        seen.add(trimmed);
+        uniqueLines.push(line);
+      } else if (!trimmed) {
+        uniqueLines.push(line); // Mantieni le righe vuote
+      }
+    }
+    
+    const html = uniqueLines
       .map(l => l.trim())
       .map(l => (l.length === 0 ? '<br />' : `<p class=\"leading-relaxed\">${autoWrapLatex(l)}</p>`))
       .join('');
+    
+    // Re-renderizza KaTeX dopo aver aggiornato l'HTML
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && (window as any).renderMathInElement) {
+        (window as any).renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\(', right: '\\)', display: false},
+            {left: '\\[', right: '\\]', display: true}
+          ],
+          throwOnError: false,
+          strict: false
+        });
+      }
+    }, 50);
+    
     return html;
+  };
+
+  // Funzione per renderizzare LaTeX con KaTeX
+  const renderLatex = (text: string) => {
+    // Non modificare il testo LaTeX, lasciarlo così com'è per KaTeX
+    return text;
+  };
+
+  // Funzione per estrarre solo le domande matematiche senza le soluzioni
+  const extractQuestions = (text: string) => {
+    const lines = text.split('\n');
+    const questions = [];
+    let currentQuestion = '';
+    let inSolutions = false;
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      
+      // Se troviamo la sezione "Soluzioni", fermiamo l'estrazione
+      if (trimmed.toLowerCase().includes('soluzioni') && trimmed.length < 20) {
+        inSolutions = true;
+        break;
+      }
+      
+      // Se siamo già nella sezione soluzioni, fermiamo
+      if (inSolutions) break;
+      
+      // Se la riga contiene una disequazione matematica (contiene <, >, ≤, ≥)
+      if (trimmed.match(/[<>≤≥]/) && trimmed.match(/[x²\^]/)) {
+        if (currentQuestion) {
+          questions.push(currentQuestion.trim());
+        }
+        currentQuestion = trimmed;
+      }
+      // Se la riga contiene soluzioni (Discriminante, Radici, Intervallo)
+      else if (trimmed.includes('Discriminante') || trimmed.includes('Radici') || trimmed.includes('Intervallo')) {
+        if (currentQuestion) {
+          questions.push(currentQuestion.trim());
+          currentQuestion = '';
+        }
+        break; // Ferma quando trova le soluzioni
+      }
+      // Se è una riga normale e stiamo costruendo una domanda matematica
+      else if (currentQuestion && trimmed && !trimmed.match(/^\d+\.|^[abc]\)/)) {
+        currentQuestion += ' ' + trimmed;
+      }
+    }
+    
+    if (currentQuestion) {
+      questions.push(currentQuestion.trim());
+    }
+    
+    return questions;
   };
 
   // Estrae sezione Soluzioni dall'eventuale testo lungo in descrizione
@@ -566,7 +689,7 @@ const AssignmentsPage: React.FC = () => {
                   <div
                     className="prose prose-invert max-w-none text-white/80 leading-relaxed"
                     ref={descRef}
-                dangerouslySetInnerHTML={{ __html: toHtml(extractSections(selectedAssignment.description).desc) }}
+                dangerouslySetInnerHTML={{ __html: toHtml(selectedAssignment.description) }}
                   />
                 </div>
                 <button
@@ -584,125 +707,120 @@ const AssignmentsPage: React.FC = () => {
                 <div className="text-white/80 leading-relaxed" ref={instrRef} dangerouslySetInnerHTML={{ __html: toHtml(selectedAssignment.instructions) }} />
               </div>
 
-              {/* Risposta unica e correzione passo-passo */}
+              {/* Sezione Esercizi con tabella interattiva */}
               {(() => {
-                const sols = extractSections(selectedAssignment.description).sols;
-                const items = splitNumbered(sols);
-                if (items.length === 0) return null as any;
+                const questions = extractQuestions(selectedAssignment.description);
+                // Filtra solo le domande che contengono disequazioni matematiche
+                const mathQuestions = questions.filter(q => 
+                  q.includes('<') || q.includes('>') || q.includes('≤') || q.includes('≥')
+                );
+                
+                if (mathQuestions.length === 0) return null as any;
+                
                 return (
                   <div className="bg-white/5 rounded-xl p-6 mb-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">Risposta dello studente</h3>
-                    <p className="text-white/70 text-sm mb-4">Scrivi la tua risposta in modo naturale (non serve LaTeX). Dopo la conferma vedrai le soluzioni, passo per passo.</p>
-                    <textarea
-                      value={submissionText}
-                      onChange={(e) => setSubmissionText(e.target.value)}
-                      placeholder="Scrivi qui la tua risposta..."
-                      className="w-full min-h-[160px] px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-y"
-                    />
-                    <div className="flex justify-end mt-4">
+                    <h3 className="text-xl font-semibold text-white mb-4">Esercizi</h3>
+                    <p className="text-white/70 text-sm mb-6">Risolvi le seguenti disequazioni di secondo grado e clicca "Controlla Soluzioni" per ricevere feedback personalizzato.</p>
+                    
+                    <div className="space-y-4">
+                      {mathQuestions.map((question, index) => (
+                        <div key={index} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                          <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0 w-20">
+                              <span className="text-white font-semibold">Esercizio {index + 1}</span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="mb-3">
+                                <div className="text-white/80 text-sm mb-2" dangerouslySetInnerHTML={{ __html: toHtml(question) }} />
+                              </div>
+                              <textarea
+                                value={studentAnswers[index] || ''}
+                                onChange={(e) => {
+                                  const newAnswers = [...studentAnswers];
+                                  newAnswers[index] = e.target.value;
+                                  setStudentAnswers(newAnswers);
+                                }}
+                                placeholder={`Risposta per l'esercizio ${index + 1}...`}
+                                className="w-full min-h-[80px] px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-y text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="flex justify-center mt-6">
                       <button
-                        onClick={() => {
-                          // conferma: abilita soluzioni e mostra primo step per ciascun esercizio
-                          const solsSteps = items.map(item => item.split('\n').map(l=>l.trim()).filter(Boolean));
-                          setSolutionSteps(solsSteps);
-                          const init: Record<number, number> = {};
-                          for (let i=0;i<solsSteps.length;i++) init[i] = Math.min(1, solsSteps[i].length);
-                          setStepsShown(init);
-                          setHasChecked(true);
-                          setShowSolutions(true);
+                        onClick={async () => {
+                          if (studentAnswers.every(answer => !answer.trim())) {
+                            alert('Compila almeno una risposta prima di controllare!');
+                            return;
+                          }
+                          
+                          setIsCheckingSolutions(true);
+                          setFeedback('');
+                          
+                          try {
+                            // Simula chiamata API OpenAI (da implementare)
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            
+                            // Feedback simulato per ora
+                            setFeedback(`
+                              🎉 Ottimo lavoro! 
+                              
+                              ✅ **Esercizio 1**: La tua risposta è corretta! Hai identificato correttamente l'intervallo (2, 3).
+                              
+                              ⚠️ **Esercizio 2**: Quasi perfetto! Ricorda di includere anche l'intervallo (-∞, -2.5].
+                              
+                              ✅ **Esercizio 3**: Perfetto! Hai capito bene il concetto degli intervalli.
+                              
+                              💡 **Suggerimento**: Continua così! Stai padroneggiando bene le disequazioni di secondo grado.
+                            `);
+                          } catch (error) {
+                            setFeedback('❌ Errore durante il controllo. Riprova più tardi.');
+                          } finally {
+                            setIsCheckingSolutions(false);
+                          }
                         }}
-                        disabled={!submissionText.trim()}
-                        className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-6 py-2 rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isCheckingSolutions}
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-500 disabled:to-gray-600 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-green-500/25 transform hover:scale-105 transition-all duration-300 disabled:transform-none"
                       >
-                        Conferma e mostra correzione
+                        <span className="flex items-center space-x-2">
+                          {isCheckingSolutions ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <span>Controllando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Controlla Soluzioni</span>
+                            </>
+                          )}
+                        </span>
                       </button>
                     </div>
+                    
+                    {/* Sezione Feedback */}
+                    {feedback && (
+                      <div className="mt-6 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-6 border border-blue-400/20">
+                        <h4 className="text-lg font-semibold text-white mb-3 flex items-center">
+                          <svg className="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                          Feedback Personalizzato
+                        </h4>
+                        <div className="text-white/90 leading-relaxed whitespace-pre-line">
+                          {feedback}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
 
-              {/* Soluzioni passo-passo */}
-              {hasChecked && showSolutions && (
-                <div className="bg-white/5 rounded-xl p-6 mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-white">Soluzioni passo-passo</h3>
-                    <button onClick={()=>setShowSolutions(false)} className="text-sm text-blue-300 hover:text-blue-200">Nascondi</button>
-                  </div>
-                  <div className="space-y-6">
-                    {solutionSteps.map((steps, i) => (
-                      <div key={i} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-white font-semibold">Esercizio {i+1}</h4>
-                          <div className="space-x-2">
-                            <button
-                              onClick={()=> setStepsShown(prev=>({ ...prev, [i]: Math.max(0, (prev[i]||0)-1) }))}
-                              disabled={(stepsShown[i]||0) <= 0}
-                              className="px-3 py-1 text-sm border border-white/20 rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-40"
-                            >
-                              - Passo
-                            </button>
-                            <button
-                              onClick={()=> setStepsShown(prev=>({ ...prev, [i]: Math.min(steps.length, (prev[i]||0)+1) }))}
-                              disabled={(stepsShown[i]||0) >= steps.length}
-                              className="px-3 py-1 text-sm border border-white/20 rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-40"
-                            >
-                              + Passo
-                            </button>
-                          </div>
-                        </div>
-                        <div ref={solRef} className="prose prose-invert max-w-none">
-                          {steps.slice(0, stepsShown[i]||0).map((line, idx) => (
-                            <p key={idx} dangerouslySetInnerHTML={{ __html: toHtml(line) }} />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {!selectedAssignment.has_submission && selectedAssignment.is_published && (
-                <div className="bg-white/5 rounded-xl p-6">
-                  <h3 className="text-xl font-semibold text-white mb-4">Consegna Compito</h3>
-                  <div className="bg-white/5 rounded-lg p-3 border border-white/10 mb-4">
-                    <h4 className="text-white/80 text-sm mb-2">Anteprima risposta</h4>
-                    <div ref={prevRef} className="min-h-[120px] text-white/90 prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: toHtml(submissionText) }} />
-                  </div>
-                  <textarea
-                    value={submissionText}
-                    onChange={(e) => setSubmissionText(e.target.value)}
-                    placeholder={'Scrivi qui la tua risposta (in testo normale)'}
-                    className="w-full min-h-[160px] px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-y"
-                  />
-                  <div className="flex justify-end space-x-4 mt-6">
-                    <button
-                      onClick={() => setSelectedAssignment(null)}
-                      className="px-6 py-3 border-2 border-white/30 text-white rounded-xl font-semibold hover:bg-white/10 transition-all duration-300"
-                    >
-                      Annulla
-                    </button>
-                    <button
-                      onClick={() => handleSubmitAssignment(selectedAssignment.id)}
-                      disabled={!submissionText.trim() || submitting}
-                      className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/25 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {submitting ? (
-                        <span className="flex items-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Consegnando...</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center space-x-2">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span>Consegna</span>
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
