@@ -307,16 +307,17 @@ const VideoRoom: React.FC = () => {
           userEmail: user?.email
         });
         
-        await agoraClient.join(
+        // Lasciare Agora scegliere l'UID reale per evitare conflitti
+        const actualUid = await agoraClient.join(
           joinData.app_id,
           joinData.channel,
           joinData.token,
-          joinData.uid
+          null
         );
         
         console.log('✅ [AGORA DEBUG] JOIN COMPLETATO:', {
           channel: joinData.channel,
-          uid: joinData.uid,
+          uid: actualUid,
           userRole: user?.role,
           lessonId: lessonId
         });
