@@ -29,6 +29,9 @@ export const authApi = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
     const doRequest = async (payload: LoginRequest) => {
       const response = await apiClient.post('/auth/login', payload);
+      if (response.data?.user?.role) {
+        localStorage.setItem('current_user_role', response.data.user.role);
+      }
       return response.data;
     };
 
