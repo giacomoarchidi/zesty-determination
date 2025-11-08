@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { lessonsApi } from '../../api/lessons';
 import type { TutorResponse } from '../../api/lessons';
+import { useAuthStore } from '../../store/authStore';
 
 interface Tutor {
   id: number;
@@ -38,6 +39,8 @@ const SUBJECTS = [
 const WEEKDAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 
 const BookLesson: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuthStore();
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,6 +54,24 @@ const BookLesson: React.FC = () => {
   });
   const [booking, setBooking] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/');
+      return;
+    }
+
+    if (user?.role !== 'student') {
+      alert('Solo gli studenti possono prenotare lezioni. Effettua il login con un account studente.');
+      if (user?.role === 'tutor') {
+        navigate('/tutor/dashboard');
+      } else if (user?.role === 'parent') {
+        navigate('/parent/dashboard');
+      } else {
+        navigate('/');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   useEffect(() => {
     if (selectedSubject) {
@@ -123,7 +144,12 @@ const BookLesson: React.FC = () => {
       
     } catch (error) {
       console.error('❌ Errore prenotazione:', error);
-      alert('Errore durante la prenotazione. Riprova.');
+      const detail = (error as any)?.response?.data?.detail;
+      if ((error as any)?.response?.status === 403) {
+        alert(detail || 'Permessi insufficienti per prenotare la lezione. Accedi con un account studente.');
+      } else {
+        alert(detail || 'Errore durante la prenotazione. Riprova.');
+      }
     } finally {
       setBooking(false);
     }
