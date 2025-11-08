@@ -312,7 +312,7 @@ const VideoRoom: React.FC = () => {
           joinData.app_id,
           joinData.channel,
           joinData.token,
-          null
+          joinData.uid
         );
         
         console.log('✅ [AGORA DEBUG] JOIN COMPLETATO:', {
