@@ -45,6 +45,7 @@ const VideoRoom: React.FC = () => {
   
   // Agora states
   const [client, setClient] = useState<IAgoraRTCClient | null>(null);
+  const clientRef = useRef<IAgoraRTCClient | null>(null);
   const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
   const [remoteUsers, setRemoteUsers] = useState<IAgoraRTCRemoteUser[]>([]);
@@ -257,6 +258,7 @@ const VideoRoom: React.FC = () => {
           }
         );
 
+        clientRef.current = agoraClient;
         setClient(agoraClient);
         setLocalVideoTrack(videoTrack);
         setLocalAudioTrack(audioTrack);
@@ -382,11 +384,13 @@ const VideoRoom: React.FC = () => {
       }
       
       // Leave dal channel
-      if (client) {
-        client.leave().catch(e => console.log('Errore leave (ignorato):', e));
-        client.removeAllListeners();
+      if (clientRef.current) {
+        clientRef.current.leave().catch(e => console.log('Errore leave (ignorato):', e));
+        clientRef.current.removeAllListeners();
         console.log('✅ Client Agora pulito');
       }
+      clientRef.current = null;
+      setClient(null);
     };
   }, [joinData]);
 
@@ -464,7 +468,7 @@ const VideoRoom: React.FC = () => {
       lessonId: lessonId
     });
     
-    await client?.subscribe(user, mediaType);
+    await clientRef.current?.subscribe(user, mediaType);
     
     if (mediaType === 'video' && user.videoTrack) {
       setRemoteUsers(prev => [...prev, user]);
@@ -803,11 +807,13 @@ const VideoRoom: React.FC = () => {
       }
       
       // Leave dal channel Agora
-      if (client) {
-        await client.leave();
-        client.removeAllListeners();
+      if (clientRef.current) {
+        await clientRef.current.leave();
+        clientRef.current.removeAllListeners();
         console.log('✅ Uscito dal channel Agora');
       }
+      clientRef.current = null;
+      setClient(null);
       
       // Naviga alla dashboard appropriata
       // Usa direttamente user.role dall'authStore (più affidabile)
