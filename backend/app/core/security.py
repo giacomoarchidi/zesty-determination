@@ -117,6 +117,15 @@ def _normalize_role(role_value: Union[Role, str, None]) -> Optional[Role]:
         return None
     if isinstance(role_value, Role):
         return role_value
+    if isinstance(role_value, str):
+        cleaned = role_value.strip()
+        if cleaned.startswith("Role."):
+            cleaned = cleaned.split(".", 1)[1]
+        cleaned = cleaned.lower()
+        try:
+            return Role(cleaned)
+        except Exception:
+            return None
     try:
         return Role(role_value)
     except Exception:
