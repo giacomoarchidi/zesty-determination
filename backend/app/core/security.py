@@ -112,10 +112,23 @@ def get_current_user(
     return user
 
 
+def _normalize_role(role_value: Union[Role, str, None]) -> Optional[Role]:
+    if role_value is None:
+        return None
+    if isinstance(role_value, Role):
+        return role_value
+    try:
+        return Role(role_value)
+    except Exception:
+        return None
+
+
 def require_role(required_role: Role):
     """Decorator to require specific user role"""
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role != required_role:
+        user_role = _normalize_role(current_user.role)
+        expected_role = _normalize_role(required_role)
+        if user_role != expected_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions"
@@ -126,8 +139,12 @@ def require_role(required_role: Role):
 
 def require_roles(required_roles: list[Role]):
     """Decorator to require any of the specified user roles"""
+    normalized_required = { _normalize_role(role) for role in required_roles }
+    normalized_required.discard(None)
+
     def roles_checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in required_roles:
+        user_role = _normalize_role(current_user.role)
+        if user_role not in normalized_required:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions"
