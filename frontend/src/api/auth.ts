@@ -27,6 +27,11 @@ export interface PasswordChangeRequest {
 export const authApi = {
   // Login user
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    const doRequest = async (payload: LoginRequest) => {
+      const response = await apiClient.post('/auth/login', payload);
+      return response.data;
+    };
+
     const shouldPrehash = (() => {
       if (typeof window === 'undefined') return false;
       const host = window.location.hostname;
@@ -34,7 +39,7 @@ export const authApi = {
       return host.endsWith('.vercel.app');
     })();
 
-    let payload: LoginRequest = credentials;
+    let payload: LoginRequest | null = null;
     if (shouldPrehash) {
       try {
         const enc = new TextEncoder();
@@ -58,8 +63,20 @@ export const authApi = {
       }
     }
 
-    const response = await apiClient.post('/auth/login', payload);
-    return response.data;
+    if (payload) {
+      try {
+        return await doRequest(payload);
+      } catch (error: any) {
+        const status = error?.response?.status;
+        if (status === 400 || status === 401) {
+          // Retry con password originale (per account creati prima del pre-hash)
+          return await doRequest(credentials);
+        }
+        throw error;
+      }
+    }
+
+    return doRequest(credentials);
   },
 
   // Register user
